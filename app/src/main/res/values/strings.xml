@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">StudySpace Timer</string>
+    <string name="notif_channel_timer">Study Timer</string>
+    <string name="notif_channel_timer_desc">Shows progress of your current study session</string>
+    <string name="notif_channel_completion">Timer Completed</string>
+    <string name="notif_channel_completion_desc">One-time alert when a session or Pomodoro work phase finishes</string>
+</resources>

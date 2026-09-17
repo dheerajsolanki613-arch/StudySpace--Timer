@@ -1,0 +1,15 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Timer ring -->
+    <path
+        android:fillType="evenOdd"
+        android:fillColor="#5CE1E6"
+        android:pathData="M24,54 a30,30 0 1,0 60,0 a30,30 0 1,0 -60,0 z M34,54 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0 z" />
+    <!-- Hand tip / star accent -->
+    <path
+        android:fillColor="#FF6EC7"
+        android:pathData="M49,27 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 z" />
+</vector>
