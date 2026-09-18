@@ -3,7 +3,6 @@ package com.studyspace.timer.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -32,19 +31,15 @@ import java.io.File
  * A dark scrim sits above any image so text and glass cards stay readable
  * regardless of how bright the chosen photo is.
  *
- * Scaling: every bundled/custom wallpaper is a tall portrait photo (~9:16).
- * [ContentScale.Crop] alone handles that fine on a portrait phone screen,
- * whose aspect ratio is close to the image's — but on a landscape/wide
- * screen, "cover the whole width" forces the same narrow image to blow up
- * far beyond its own resolution and then shows only a thin vertical sliver
- * of it, which is the "excessive zoom and cropping" bug. [WallpaperImage]
- * measures its own box and only crops when the box is *taller* than it is
- * wide (i.e. roughly matches the photo's own portrait shape); once the box
- * is wider than it is tall it switches to [ContentScale.Fit] instead, which
- * scales the photo down to fit without blowing it up or slicing off most of
- * it. The palette gradient is painted underneath in every case, so any
- * space [ContentScale.Fit] leaves on the sides reads as an intentional
- * themed frame rather than a blank gap.
+ * Scaling: always [ContentScale.Crop], in both portrait and landscape. An
+ * earlier version switched to [ContentScale.Fit] on rotation so a tall
+ * portrait wallpaper wouldn't get blown up — but that meant the background
+ * visibly changed shape/framing on every rotation (a letterboxed vertical
+ * strip appearing mid-screen), which read as broken rather than
+ * intentional. [WallpaperImage] now always crops to fill its measured box,
+ * so the wallpaper's framing/zoom looks the same regardless of
+ * orientation — it just fills whatever box it's given, exactly like a
+ * normal Android background/wallpaper does.
  */
 @Composable
 fun AppBackground(
@@ -102,11 +97,10 @@ fun AppBackground(
 
 /**
  * Shared shell for the two image-backed wallpaper cases: a themed gradient
- * base (so [ContentScale.Fit] never leaves a blank gap), the image itself
- * with orientation-appropriate scaling, then the readability scrim on top.
- * `image` receives the [ContentScale] to draw itself with rather than
- * picking one internally, since only this composable has the measured
- * `BoxWithConstraints` size to decide portrait-crop vs. landscape-fit.
+ * base, the image itself always cropped to fill, then the readability
+ * scrim on top. No longer needs [BoxWithConstraints] to pick a scale per
+ * orientation — [ContentScale.Crop] is passed through unconditionally now,
+ * so the wallpaper's framing stays visually identical across rotation.
  */
 @Composable
 private fun WallpaperImage(
@@ -116,31 +110,17 @@ private fun WallpaperImage(
     image: @Composable (ContentScale) -> Unit
 ) {
     val fallback = MaterialTheme.colorScheme.background
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val isLandscape = maxWidth > maxHeight
-        val scale = if (isLandscape) ContentScale.Fit else ContentScale.Crop
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = palette.previewColors.ifEmpty { listOf(fallback, fallback) }
-                    )
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = palette.previewColors.ifEmpty { listOf(fallback, fallback) }
                 )
-        ) {
-            image(scale)
-            // Landscape keeps the image at its native aspect via Fit rather
-            // than blowing it up (see the class doc), which means the
-            // busiest part of the photo sits fully within the visible
-            // frame instead of being cropped away — exactly where the
-            // Analytics/Session cards' translucent [GlassCard] fill used to
-            // sit right on top of it with too little contrast underneath
-            // ("wallpaper overlaps the UI" / "poor contrast" reports). The
-            // scrim goes stronger in that orientation specifically, rather
-            // than raising it everywhere and flattening the portrait look.
-            ScrimOverlay(color = scrimColor, isDark = palette.isDark, boosted = isLandscape)
-        }
+            )
+    ) {
+        image(ContentScale.Crop)
+        ScrimOverlay(color = scrimColor, isDark = palette.isDark)
     }
 }
 
@@ -149,19 +129,10 @@ private fun WallpaperImage(
  * legible on top of it. Dark galaxy palettes darken the photo (as before);
  * Kawaii Pastel instead lightens it slightly toward cream, since espresso
  * text needs a *light* backdrop, not a dark one.
- *
- * [boosted] raises both alphas further for the landscape/[ContentScale.Fit]
- * case, where the full, un-cropped photo is visible behind foreground
- * content rather than just a cropped slice — see the call site's doc.
  */
 @Composable
-private fun ScrimOverlay(
-    color: androidx.compose.ui.graphics.Color,
-    isDark: Boolean,
-    boosted: Boolean = false
-) {
-    val baseAlpha = if (isDark) 0.55f else 0.35f
-    val scrimAlpha = if (boosted) (baseAlpha + 0.18f).coerceAtMost(0.9f) else baseAlpha
+private fun ScrimOverlay(color: androidx.compose.ui.graphics.Color, isDark: Boolean) {
+    val scrimAlpha = if (isDark) 0.55f else 0.35f
     Box(
         modifier = Modifier
             .fillMaxSize()
