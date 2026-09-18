@@ -60,8 +60,9 @@ data class PomodoroUiState(
  * Work-only session-recording rule described above.
  */
 class PomodoroViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = (application as StudySpaceApplication).sessionRepository
-    private val settingsRepository = application.settingsRepository
+    private val app = application as StudySpaceApplication
+    private val repository = app.sessionRepository
+    private val settingsRepository = app.settingsRepository
 
     private val engine: TimerEngine = TimerEngine(
         scope = viewModelScope,

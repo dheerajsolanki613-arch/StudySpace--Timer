@@ -29,8 +29,9 @@ import kotlinx.coroutines.flow.stateIn
  * old constant, so a user who never opens Settings sees no change.
  */
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = (application as StudySpaceApplication).sessionRepository
-    private val settingsRepository = application.settingsRepository
+    private val app = application as StudySpaceApplication
+    private val repository = app.sessionRepository
+    private val settingsRepository = app.settingsRepository
 
     val stats: StateFlow<StudyStats> = repository.studyStats()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudyStats())

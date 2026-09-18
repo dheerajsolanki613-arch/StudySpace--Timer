@@ -35,8 +35,9 @@ import kotlinx.coroutines.launch
  * alerts" Settings toggle.
  */
 class CountdownTimerViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = (application as StudySpaceApplication).sessionRepository
-    private val settingsRepository = application.settingsRepository
+    private val app = application as StudySpaceApplication
+    private val repository = app.sessionRepository
+    private val settingsRepository = app.settingsRepository
 
     private val engine = TimerEngine(scope = viewModelScope, onCompleted = { onTimerCompleted() })
     val state = engine.state

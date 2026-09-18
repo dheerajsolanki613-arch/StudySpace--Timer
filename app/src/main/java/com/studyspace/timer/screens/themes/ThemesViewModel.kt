@@ -28,8 +28,9 @@ import kotlinx.coroutines.launch
  */
 class ThemesViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val wallpaperRepository = (application as StudySpaceApplication).wallpaperRepository
-    private val paletteRepository = application.paletteRepository
+    private val app = application as StudySpaceApplication
+    private val wallpaperRepository = app.wallpaperRepository
+    private val paletteRepository = app.paletteRepository
 
     val selection: StateFlow<WallpaperSelection> = wallpaperRepository.selection.stateIn(
         scope = viewModelScope,

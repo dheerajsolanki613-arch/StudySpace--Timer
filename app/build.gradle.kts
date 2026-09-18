@@ -71,6 +71,15 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    // Explicitly declared (rather than relying on it transitively via
+    // material3) so it resolves to the exact compose-bom-aligned version.
+    // Without this, some environments pulled a mismatched foundation /
+    // foundation-layout pair and Modifier.weight() (a public
+    // RowScope/ColumnScope extension) resolved to an internal overload,
+    // producing "Cannot access 'weight': it is internal in
+    // androidx.compose.foundation.layout" in AnalyticsScreen/HomeScreen/
+    // SettingsScreen.
+    implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.compose.material:material-icons-extended")
 
