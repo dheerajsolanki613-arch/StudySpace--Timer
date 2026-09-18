@@ -50,8 +50,51 @@ this file fully before touching code.
 - ⬜ Stage 10 — Final build, release docs, packaged ZIP
 
 ## Session log
+- **Build fix — `compileDebugKotlin` failure on `weight()` (this session):**
+  GitHub Actions run "Add Focus Mode strict lock system #6" failed at
+  `:app:compileDebugKotlin` with `Cannot access 'weight': it is internal in
+  'androidx.compose.foundation.layout'` in `AnalyticsScreen.kt`,
+  `HomeScreen.kt`, and `SettingsScreen.kt` — unrelated to Focus Mode itself,
+  but it blocked the whole module from compiling, so Focus Mode couldn't be
+  verified either. Root cause: all three files had
+  `import androidx.compose.foundation.layout.weight`. `Modifier.weight()` is
+  not a top-level function in that package — it's a member extension
+  declared inside `RowScope`/`ColumnScope`, automatically in scope inside a
+  `Row { }`/`Column { }` block with **no import needed**. The package does
+  contain an internal top-level symbol also named `weight` (an
+  implementation detail), which is what that import statement was actually
+  resolving to — hence "internal", not "unresolved reference". Fix: removed
+  the bad import from all three files; every `Modifier.weight(1f)` call site
+  in each file was confirmed to already sit inside a `Row`/`Column` scope
+  before removing it, so no new unresolved-reference errors were
+  introduced. **Correction to an earlier diagnosis:** `app/build.gradle.kts`
+  has a comment (on the explicit `androidx.compose.foundation:foundation`
+  dependency) attributing a past version of this exact error to a
+  foundation/foundation-layout version mismatch. Given what actually caused
+  it this time, that comment's explanation is likely wrong — the errant
+  import is a sufficient explanation on its own, in any version. Left the
+  dependency declaration in place (harmless either way) but flagging the
+  comment's reasoning as unverified/likely incorrect rather than leaving it
+  stated as fact.
+
+  Focus Mode files themselves (`FocusScreen.kt`, `BottomNavBar.kt`,
+  `StudySpaceNavHost.kt`, `FocusModeViewModel.kt`, `FocusLockController.kt`,
+  `FocusDuration.kt`) were separately re-reviewed line-by-line against every
+  function/type they call into — no errors found in any of them. This CI
+  failure was never actually in the lock system; it just prevented the lock
+  system from reaching the compiler at all. **Verification status:** this
+  fix removes the specific two-token change that caused the logged failure,
+  checked manually (no compiler available in this environment either) by
+  confirming every affected call site's scope — still not an actual
+  Gradle/Kotlin compile. Watch the next GitHub Actions run to confirm this
+  clears `compileDebugKotlin`, and that nothing else was hiding behind it
+  (Kotlin's compiler stops listing further errors in a file once one is
+  found, so there could in principle be an error later in one of these
+  three files that this run's log never reached — unlikely given the rest
+  of each file matched every other call site checked, but not something a
+  static read can fully rule out the way a real compile would).
 - **Strict Focus Mode — wiring the lock into the actual UI/navigation
-  (this session):** Inspected the repo before writing anything, per the
+  (earlier session):** Inspected the repo before writing anything, per the
   working rules, and found a real gap: `timer/FocusModeViewModel.kt`,
   `timer/FocusLockController.kt`, and `timer/FocusDuration.kt` already
   existed (setup/active/completed stage machine, duration validation,
