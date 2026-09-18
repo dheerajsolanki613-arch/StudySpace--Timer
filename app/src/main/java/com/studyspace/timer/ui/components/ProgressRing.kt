@@ -15,9 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import com.studyspace.timer.ui.theme.GalaxyNeonCyan
-import com.studyspace.timer.ui.theme.GalaxyNeonPink
-import com.studyspace.timer.ui.theme.GalaxyStarWhite
 import com.studyspace.timer.ui.theme.LocalReduceMotion
 
 /**
@@ -51,8 +48,8 @@ fun ProgressRing(
     modifier: Modifier = Modifier,
     size: Int = 120,
     strokeWidth: Int = 10,
-    trackColor: Color = Color.White.copy(alpha = 0.12f),
-    progressColor: Color = GalaxyNeonCyan,
+    trackColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+    progressColor: Color = MaterialTheme.colorScheme.secondary,
     centerLabel: String? = null,
     centerSubLabel: String? = null,
     animate: Boolean = true
@@ -92,13 +89,13 @@ fun ProgressRing(
                     Text(
                         text = centerLabel,
                         style = MaterialTheme.typography.titleLarge,
-                        color = GalaxyStarWhite
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (centerSubLabel != null) {
                         Text(
                             text = centerSubLabel,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = GalaxyStarWhite.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                     }
                 }
@@ -107,5 +104,4 @@ fun ProgressRing(
     }
 }
 
-/** Two-tone variant (used for Pomodoro work/break cycles later). */
-val ProgressRingWorkColor = GalaxyNeonPink
+

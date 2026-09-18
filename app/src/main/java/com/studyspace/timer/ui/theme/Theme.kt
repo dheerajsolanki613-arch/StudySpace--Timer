@@ -4,13 +4,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 
 /**
- * StudySpace Timer is dark-first by design (galaxy aesthetic) — there is no
- * light-mode variant. What Stage 6 adds is [paletteId]: which of
- * [AppPalettes] supplies the actual Material [androidx.compose.material3.ColorScheme],
+ * StudySpace Timer supports both a dark "galaxy" aesthetic and a light
+ * "Kawaii Pastel" one — [paletteId] selects which [AppPalettes] entry
+ * supplies the actual Material [androidx.compose.material3.ColorScheme],
  * selectable and persisted from the Themes screen. Every screen, card, and
- * button already reads its colors from `MaterialTheme.colorScheme` (or the
- * `Galaxy*` constants that back the default palette), so swapping the scheme
- * here is enough to re-theme the whole app.
+ * button reads its colors from `MaterialTheme.colorScheme` (no more fixed
+ * `Galaxy*` constants outside of [AppPalettes] itself), so swapping the
+ * scheme here re-themes the whole app, backgrounds included.
  */
 @Composable
 fun StudySpaceTimerTheme(

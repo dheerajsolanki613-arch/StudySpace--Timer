@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -12,7 +13,6 @@ import androidx.compose.ui.res.painterResource
 import coil.compose.rememberAsyncImagePainter
 import com.studyspace.timer.ui.theme.AppPalette
 import com.studyspace.timer.ui.theme.AppPalettes
-import com.studyspace.timer.ui.theme.GalaxyDeepSpace
 import com.studyspace.timer.wallpaper.WallpaperSelection
 import java.io.File
 
@@ -39,20 +39,20 @@ fun AppBackground(
 ) {
     when (selection) {
         is WallpaperSelection.Default -> {
+            val fallback = MaterialTheme.colorScheme.background
             Box(
                 modifier = modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = palette.previewColors.take(2).ifEmpty {
-                                listOf(GalaxyDeepSpace, GalaxyDeepSpace)
-                            }
+                            colors = palette.previewColors.ifEmpty { listOf(fallback, fallback) }
                         )
                     )
             )
         }
 
         is WallpaperSelection.BuiltIn -> {
+            val scrimColor = palette.previewColors.firstOrNull() ?: MaterialTheme.colorScheme.background
             Box(modifier = modifier.fillMaxSize()) {
                 Image(
                     painter = painterResource(id = selection.wallpaper.drawableRes),
@@ -60,11 +60,12 @@ fun AppBackground(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-                ScrimOverlay(color = palette.previewColors.firstOrNull() ?: GalaxyDeepSpace)
+                ScrimOverlay(color = scrimColor, isDark = palette.isDark)
             }
         }
 
         is WallpaperSelection.Custom -> {
+            val scrimColor = palette.previewColors.firstOrNull() ?: MaterialTheme.colorScheme.background
             Box(modifier = modifier.fillMaxSize()) {
                 Image(
                     painter = rememberAsyncImagePainter(model = File(selection.filePath)),
@@ -72,18 +73,24 @@ fun AppBackground(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-                ScrimOverlay(color = palette.previewColors.firstOrNull() ?: GalaxyDeepSpace)
+                ScrimOverlay(color = scrimColor, isDark = palette.isDark)
             }
         }
     }
 }
 
-/** Darkens a wallpaper image just enough that galaxy-white/lavender text stays legible. */
+/**
+ * Tints a wallpaper image just enough that the active palette's text stays
+ * legible on top of it. Dark galaxy palettes darken the photo (as before);
+ * Kawaii Pastel instead lightens it slightly toward cream, since espresso
+ * text needs a *light* backdrop, not a dark one.
+ */
 @Composable
-private fun ScrimOverlay(color: androidx.compose.ui.graphics.Color) {
+private fun ScrimOverlay(color: androidx.compose.ui.graphics.Color, isDark: Boolean) {
+    val scrimAlpha = if (isDark) 0.55f else 0.35f
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(color.copy(alpha = 0.55f))
+            .background(color.copy(alpha = scrimAlpha))
     )
 }

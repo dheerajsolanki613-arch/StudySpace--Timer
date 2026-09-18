@@ -3,7 +3,9 @@ package com.studyspace.timer.screens.timer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -21,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,7 +35,7 @@ import com.studyspace.timer.timer.formatTimerDuration
 import com.studyspace.timer.ui.components.PrimaryButton
 import com.studyspace.timer.ui.components.SecondaryButton
 import com.studyspace.timer.ui.components.TimerCard
-import com.studyspace.timer.ui.theme.GalaxyMutedLavender
+import com.studyspace.timer.ui.util.isLandscape
 
 private val timerModes = listOf("Self-Study", "Online Study", "Normal")
 
@@ -42,11 +45,18 @@ private val timerModes = listOf("Self-Study", "Online Study", "Normal")
  * ViewModel instance (via distinct `viewModel(key = ...)` calls), obtained
  * unconditionally every recomposition regardless of [selectedTab], so a
  * timer keeps counting even while a different tab is showing and switching
- * tabs never resets or shares another mode's progress.
+ * tabs never resets or shares another mode's progress. That's also what
+ * keeps the running timer intact across a rotation: the ViewModel isn't
+ * scoped to this composable's position on screen, so relaying out for
+ * landscape doesn't touch it.
+ *
+ * In landscape, the tab content is centered with a bounded max width
+ * instead of stretching the card and buttons edge-to-edge on a wide screen.
  */
 @Composable
 fun TimerScreen(modifier: Modifier = Modifier) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val landscape = isLandscape()
 
     val selfStudyViewModel: StopwatchTimerViewModel = viewModel(key = "self_study_timer")
     val onlineStudyViewModel: StopwatchTimerViewModel = viewModel(key = "online_study_timer")
@@ -54,17 +64,21 @@ fun TimerScreen(modifier: Modifier = Modifier) {
 
     Column(
         modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalAlignment = if (landscape) Alignment.CenterHorizontally else Alignment.Start
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(
                 text = "Timer",
                 style = MaterialTheme.typography.headlineMedium,
-                color = GalaxyMutedLavender
+                color = MaterialTheme.colorScheme.tertiary
             )
         }
 
-        TabRow(selectedTabIndex = selectedTab) {
+        TabRow(
+            selectedTabIndex = selectedTab,
+            modifier = if (landscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth()
+        ) {
             timerModes.forEachIndexed { index, label ->
                 Tab(
                     selected = selectedTab == index,
@@ -75,7 +89,8 @@ fun TimerScreen(modifier: Modifier = Modifier) {
         }
 
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = (if (landscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth())
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when (selectedTab) {
@@ -151,7 +166,7 @@ private fun CountdownTimerContent(viewModel: CountdownTimerViewModel) {
             Text(
                 text = "Duration",
                 style = MaterialTheme.typography.labelLarge,
-                color = GalaxyMutedLavender
+                color = MaterialTheme.colorScheme.tertiary
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(CountdownTimerViewModel.PRESET_MINUTES) { minutes ->

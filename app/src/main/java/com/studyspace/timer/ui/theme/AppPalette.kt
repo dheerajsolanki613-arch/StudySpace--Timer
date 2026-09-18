@@ -2,19 +2,28 @@ package com.studyspace.timer.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
 /**
  * One selectable app-wide color palette: a Material [ColorScheme] plus the
- * gradient colors used to preview it as a swatch on the Themes screen. All
- * three ship dark (galaxy aesthetic is dark-first by design); a palette
- * changes the accent/surface relationships, not the light/dark mode itself.
+ * gradient colors used both to preview it as a swatch on the Themes screen
+ * and to paint the app-wide [com.studyspace.timer.ui.components.AppBackground]
+ * when the wallpaper mode is [com.studyspace.timer.wallpaper.WallpaperSelection.Default].
+ *
+ * Every palette used to ship dark (galaxy aesthetic was dark-first by
+ * design). [isDark] now distinguishes that from the light, cream-and-pastel
+ * "Kawaii Pastel" palette, so components that need different *styling* (not
+ * just different colors) — [com.studyspace.timer.ui.components.GlassCard]'s
+ * translucent-glass-vs-solid-card fill being the main one — can branch on it
+ * instead of assuming dark.
  */
 data class AppPalette(
     val id: String,
     val label: String,
     val previewColors: List<Color>,
-    val colorScheme: ColorScheme
+    val colorScheme: ColorScheme,
+    val isDark: Boolean = true
 )
 
 object AppPalettes {
@@ -28,10 +37,16 @@ object AppPalettes {
             tertiary = GalaxyMutedLavender,
             background = GalaxyDeepSpace,
             surface = GalaxyTwilightPurple,
+            surfaceVariant = GalaxyTwilightPurple,
+            outline = GalaxyMutedLavender,
             onBackground = GalaxyStarWhite,
             onSurface = GalaxyStarWhite,
+            onSurfaceVariant = GalaxyStarWhite,
             onPrimary = GalaxyDeepSpace,
             onSecondary = GalaxyDeepSpace,
+            onTertiary = GalaxyDeepSpace,
+            primaryContainer = GalaxyNeonPink,
+            onPrimaryContainer = GalaxyDeepSpace,
         )
     )
 
@@ -45,10 +60,16 @@ object AppPalettes {
             tertiary = GalaxyMutedLavender,
             background = GalaxyDeepSpace,
             surface = GalaxyNebulaBlue.copy(alpha = 0.55f).compositeOverDeepSpace(),
+            surfaceVariant = GalaxyNebulaBlue.copy(alpha = 0.55f).compositeOverDeepSpace(),
+            outline = GalaxyMutedLavender,
             onBackground = GalaxyStarWhite,
             onSurface = GalaxyStarWhite,
+            onSurfaceVariant = GalaxyStarWhite,
             onPrimary = GalaxyDeepSpace,
             onSecondary = GalaxyStarWhite,
+            onTertiary = GalaxyDeepSpace,
+            primaryContainer = GalaxyNeonCyan,
+            onPrimaryContainer = GalaxyDeepSpace,
         )
     )
 
@@ -62,10 +83,16 @@ object AppPalettes {
             tertiary = GalaxyNeonCyan,
             background = GalaxyTwilightPurple,
             surface = GalaxyDeepSpace,
+            surfaceVariant = GalaxyDeepSpace,
+            outline = GalaxyMutedLavender,
             onBackground = GalaxyStarWhite,
             onSurface = GalaxyStarWhite,
+            onSurfaceVariant = GalaxyStarWhite,
             onPrimary = GalaxyDeepSpace,
             onSecondary = GalaxyDeepSpace,
+            onTertiary = GalaxyDeepSpace,
+            primaryContainer = GalaxyMutedLavender,
+            onPrimaryContainer = GalaxyDeepSpace,
         )
     )
 
@@ -79,10 +106,16 @@ object AppPalettes {
             tertiary = GalaxyMutedLavender,
             background = GalaxyDeepSpace,
             surface = GalaxyTwilightPurple,
+            surfaceVariant = GalaxyTwilightPurple,
+            outline = GalaxyMutedLavender,
             onBackground = GalaxyStarWhite,
             onSurface = GalaxyStarWhite,
+            onSurfaceVariant = GalaxyStarWhite,
             onPrimary = GalaxyDeepSpace,
             onSecondary = GalaxyDeepSpace,
+            onTertiary = GalaxyDeepSpace,
+            primaryContainer = GalaxySolarOrange,
+            onPrimaryContainer = GalaxyDeepSpace,
         )
     )
 
@@ -96,10 +129,16 @@ object AppPalettes {
             tertiary = GalaxyMutedLavender,
             background = GalaxyDeepSpace,
             surface = GalaxyTwilightPurple,
+            surfaceVariant = GalaxyTwilightPurple,
+            outline = GalaxyMutedLavender,
             onBackground = GalaxyStarWhite,
             onSurface = GalaxyStarWhite,
+            onSurfaceVariant = GalaxyStarWhite,
             onPrimary = GalaxyDeepSpace,
             onSecondary = GalaxyDeepSpace,
+            onTertiary = GalaxyDeepSpace,
+            primaryContainer = GalaxyEmeraldGreen,
+            onPrimaryContainer = GalaxyDeepSpace,
         )
     )
 
@@ -113,15 +152,53 @@ object AppPalettes {
             tertiary = GalaxyNeonCyan,
             background = GalaxyDeepSpace,
             surface = GalaxyTwilightPurple,
+            surfaceVariant = GalaxyTwilightPurple,
+            outline = GalaxyNeonCyan,
             onBackground = GalaxyStarWhite,
             onSurface = GalaxyStarWhite,
+            onSurfaceVariant = GalaxyStarWhite,
             onPrimary = GalaxyDeepSpace,
             onSecondary = GalaxyStarWhite,
+            onTertiary = GalaxyDeepSpace,
+            primaryContainer = GalaxyCrimsonRed,
+            onPrimaryContainer = GalaxyDeepSpace,
+        )
+    )
+
+    /**
+     * Light, cream-and-pastel palette matching the kawaii mascot reference
+     * mockup: soft lavender-to-cream sunset gradient behind an opaque cream
+     * card, espresso-brown text, a periwinkle-lavender accent (Focus Mode
+     * pill, active bottom-nav tab), and a deep mocha primary-action color
+     * (Start/Pause buttons) — see the Kawaii* constants in Color.kt for the
+     * exact values pulled from the reference image.
+     */
+    val kawaiiPastel = AppPalette(
+        id = "kawaii_pastel",
+        label = "Kawaii Pastel",
+        previewColors = listOf(KawaiiLavenderSky, KawaiiRose, KawaiiPeach, KawaiiBackground),
+        isDark = false,
+        colorScheme = lightColorScheme(
+            primary = KawaiiLavender,
+            secondary = KawaiiTerracotta,
+            tertiary = KawaiiChickYellow,
+            background = KawaiiBackground,
+            surface = KawaiiCream,
+            surfaceVariant = KawaiiRose,
+            outline = KawaiiRose,
+            onBackground = KawaiiEspresso,
+            onSurface = KawaiiEspresso,
+            onSurfaceVariant = KawaiiEspresso,
+            onPrimary = KawaiiIndigo,
+            onSecondary = Color.White,
+            onTertiary = KawaiiEspresso,
+            primaryContainer = KawaiiMocha,
+            onPrimaryContainer = Color.White,
         )
     )
 
     val all: List<AppPalette> = listOf(
-        galaxy, nebulaBlue, twilightLavender, solarFlare, emeraldNova, crimsonNebula
+        galaxy, nebulaBlue, twilightLavender, solarFlare, emeraldNova, crimsonNebula, kawaiiPastel
     )
 
     fun byId(id: String?): AppPalette = all.find { it.id == id } ?: galaxy

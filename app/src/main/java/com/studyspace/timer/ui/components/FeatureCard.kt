@@ -20,7 +20,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.studyspace.timer.ui.theme.GalaxyStarWhite
 
 /**
  * Quick-action tile used on the Home dashboard grid (Self-Study, Online Study,
@@ -71,12 +70,12 @@ fun FeatureCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    color = GalaxyStarWhite
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GalaxyStarWhite.copy(alpha = 0.65f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                 )
             }
         }

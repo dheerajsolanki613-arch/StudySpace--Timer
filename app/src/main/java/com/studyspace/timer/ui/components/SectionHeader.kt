@@ -9,8 +9,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.studyspace.timer.ui.theme.GalaxyMutedLavender
-import com.studyspace.timer.ui.theme.GalaxyNeonCyan
 
 /**
  * Standard "Section Title  ...  optional action" header used above lists of
@@ -31,11 +29,11 @@ fun SectionHeader(
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
-            color = GalaxyMutedLavender
+            color = MaterialTheme.colorScheme.tertiary
         )
         if (actionLabel != null) {
             TextButton(onClick = onActionClick) {
-                Text(text = actionLabel, color = GalaxyNeonCyan)
+                Text(text = actionLabel, color = MaterialTheme.colorScheme.secondary)
             }
         }
     }

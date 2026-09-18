@@ -12,13 +12,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.studyspace.timer.ui.theme.GalaxyNeonCyan
-import com.studyspace.timer.ui.theme.GalaxyStarWhite
 
 /**
  * Visual shell for a timer screen: large time readout + label + row of action
- * buttons. Stage 2 only renders a static/placeholder time; Stage 3 replaces
- * [timeText] and the button callbacks with real timer engine state.
+ * buttons. Text colors read `onSurface` (not a fixed `Galaxy*` constant) so
+ * they stay legible against whichever card fill the active palette gives
+ * [GlassCardAccent] — espresso-brown on Kawaii Pastel's cream card, star-white
+ * on every dark galaxy palette's glass card.
  */
 @Composable
 fun TimerCard(
@@ -30,7 +30,7 @@ fun TimerCard(
 ) {
     GlassCardAccent(
         modifier = modifier.fillMaxWidth(),
-        accentColor = GalaxyNeonCyan
+        accentColor = MaterialTheme.colorScheme.secondary
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -39,19 +39,19 @@ fun TimerCard(
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleLarge,
-                color = GalaxyStarWhite.copy(alpha = 0.8f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = timeText,
                 style = MaterialTheme.typography.headlineLarge,
-                color = GalaxyStarWhite
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.bodyMedium,
-                color = GalaxyStarWhite.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
             Spacer(modifier = Modifier.height(20.dp))
             Row(

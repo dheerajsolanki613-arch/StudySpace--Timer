@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -42,12 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.studyspace.timer.ui.components.SectionHeader
 import com.studyspace.timer.ui.theme.AppPalettes
-import com.studyspace.timer.ui.theme.GalaxyDeepSpace
-import com.studyspace.timer.ui.theme.GalaxyMutedLavender
-import com.studyspace.timer.ui.theme.GalaxyNeonCyan
-import com.studyspace.timer.ui.theme.GalaxyNeonPink
-import com.studyspace.timer.ui.theme.GalaxyStarWhite
-import com.studyspace.timer.ui.theme.GalaxyTwilightPurple
+import com.studyspace.timer.ui.util.isLandscape
 import com.studyspace.timer.wallpaper.WallpaperCatalog
 import com.studyspace.timer.wallpaper.WallpaperSelection
 import java.io.File
@@ -61,35 +57,44 @@ import java.io.File
  *    painted behind every screen by [com.studyspace.timer.ui.components.AppBackground].
  *  - Palette swaps the Material color scheme itself (primary/secondary/
  *    surface colors used by every screen, card, and button in the app) via
- *    [com.studyspace.timer.ui.theme.StudySpaceTimerTheme].
+ *    [com.studyspace.timer.ui.theme.StudySpaceTimerTheme]. Includes the
+ *    light "Kawaii Pastel" palette alongside the six dark galaxy ones.
  * Both choices survive app restarts.
+ *
+ * Theme/rotation update: every fixed `Galaxy*` reference is gone — selection
+ * rings, badges, and labels read `MaterialTheme.colorScheme`, the "Default"
+ * wallpaper tile now previews the *currently selected* palette's gradient
+ * instead of a hardcoded galaxy one, and the grids use 3 columns in
+ * landscape (vs. 2 in portrait).
  */
 @Composable
 fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = viewModel()) {
     val wallpaperSelection by viewModel.selection.collectAsState()
     val importError by viewModel.importError.collectAsState()
     val paletteId by viewModel.paletteId.collectAsState()
+    val activePalette = AppPalettes.byId(paletteId)
+    val columns = if (isLandscape()) 3 else 2
 
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri -> viewModel.onGalleryImagePicked(uri) }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = GridCells.Fixed(columns),
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(span = { GridItemSpan(2) }) {
+        item(span = { GridItemSpan(columns) }) {
             Text(
                 text = "Themes & Wallpapers",
                 style = MaterialTheme.typography.headlineMedium,
-                color = GalaxyMutedLavender
+                color = MaterialTheme.colorScheme.tertiary
             )
         }
 
-        item(span = { GridItemSpan(2) }) {
+        item(span = { GridItemSpan(columns) }) {
             SectionHeader(title = "Wallpaper")
         }
 
@@ -102,7 +107,7 @@ fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = vie
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Brush.linearGradient(listOf(GalaxyDeepSpace, GalaxyTwilightPurple)))
+                        .background(Brush.linearGradient(activePalette.previewColors))
                 )
             }
         }
@@ -137,16 +142,16 @@ fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = vie
         }
 
         if (importError != null) {
-            item(span = { GridItemSpan(2) }) {
+            item(span = { GridItemSpan(columns) }) {
                 Text(
                     text = importError ?: "",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GalaxyNeonPink
+                    color = MaterialTheme.colorScheme.error
                 )
             }
         }
 
-        item(span = { GridItemSpan(2) }) {
+        item(span = { GridItemSpan(columns) }) {
             SectionHeader(title = "Palette")
         }
         items(AppPalettes.all) { palette ->
@@ -159,7 +164,11 @@ fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = vie
                         .background(Brush.linearGradient(palette.previewColors))
                         .border(
                             width = if (palette.id == paletteId) 2.dp else 1.dp,
-                            color = if (palette.id == paletteId) GalaxyNeonCyan else GalaxyStarWhite.copy(alpha = 0.2f),
+                            color = if (palette.id == paletteId) {
+                                MaterialTheme.colorScheme.secondary
+                            } else {
+                                Color.White.copy(alpha = 0.2f)
+                            },
                             shape = RoundedCornerShape(16.dp)
                         ),
                     contentAlignment = Alignment.TopEnd
@@ -170,13 +179,13 @@ fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = vie
                                 .padding(6.dp)
                                 .size(22.dp)
                                 .clip(CircleShape)
-                                .background(GalaxyNeonCyan),
+                                .background(MaterialTheme.colorScheme.secondary),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Check,
                                 contentDescription = "Selected",
-                                tint = GalaxyDeepSpace,
+                                tint = MaterialTheme.colorScheme.onSecondary,
                                 modifier = Modifier.size(14.dp)
                             )
                         }
@@ -185,7 +194,7 @@ fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = vie
                 Text(
                     text = palette.label,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GalaxyStarWhite,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -193,7 +202,14 @@ fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = vie
     }
 }
 
-/** One selectable wallpaper thumbnail: image/preview content + label + selection ring. */
+/**
+ * One selectable wallpaper thumbnail: image/preview content + label +
+ * selection ring. The ring and badge use `MaterialTheme.colorScheme`, but
+ * the surrounding unselected border stays a fixed translucent white/black
+ * split by luminance — the tiles themselves show arbitrary bundled photos,
+ * not the active palette, so their border can't lean on `onSurface` the way
+ * card text does.
+ */
 @Composable
 private fun WallpaperTile(
     label: String,
@@ -201,6 +217,7 @@ private fun WallpaperTile(
     onClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    val scheme = MaterialTheme.colorScheme
     Column {
         Box(
             modifier = Modifier
@@ -209,7 +226,7 @@ private fun WallpaperTile(
                 .clickable(onClick = onClick)
                 .border(
                     width = if (selected) 2.dp else 1.dp,
-                    color = if (selected) GalaxyNeonCyan else GalaxyStarWhite.copy(alpha = 0.2f),
+                    color = if (selected) scheme.secondary else Color.White.copy(alpha = 0.2f),
                     shape = RoundedCornerShape(16.dp)
                 )
         ) {
@@ -221,7 +238,7 @@ private fun WallpaperTile(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = GalaxyStarWhite,
+            color = scheme.onBackground,
             modifier = Modifier.padding(top = 8.dp)
         )
     }
@@ -242,6 +259,7 @@ private fun PersonalizeTile(
     onClick: () -> Unit,
     onRemove: () -> Unit
 ) {
+    val scheme = MaterialTheme.colorScheme
     Column {
         Box(
             modifier = Modifier
@@ -250,7 +268,7 @@ private fun PersonalizeTile(
                 .clickable(onClick = onClick)
                 .border(
                     width = if (selected) 2.dp else 1.dp,
-                    color = if (selected) GalaxyNeonCyan else GalaxyStarWhite.copy(alpha = 0.2f),
+                    color = if (selected) scheme.secondary else Color.White.copy(alpha = 0.2f),
                     shape = RoundedCornerShape(16.dp)
                 )
         ) {
@@ -264,19 +282,19 @@ private fun PersonalizeTile(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(GalaxyDeepSpace.copy(alpha = 0.35f))
+                        .background(scheme.background.copy(alpha = 0.35f))
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(GalaxyTwilightPurple.copy(alpha = 0.5f))
+                        .background(scheme.surfaceVariant.copy(alpha = 0.5f))
                 )
             }
             Icon(
                 imageVector = Icons.Filled.AddPhotoAlternate,
                 contentDescription = null,
-                tint = GalaxyStarWhite,
+                tint = scheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.Center)
             )
             if (selected) {
@@ -289,14 +307,14 @@ private fun PersonalizeTile(
                         .size(22.dp)
                         .align(Alignment.TopStart)
                         .clip(CircleShape)
-                        .background(GalaxyDeepSpace.copy(alpha = 0.7f))
+                        .background(scheme.background.copy(alpha = 0.7f))
                         .clickable(onClick = onRemove),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = "Remove personalized photo",
-                        tint = GalaxyStarWhite,
+                        tint = scheme.onBackground,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -305,7 +323,7 @@ private fun PersonalizeTile(
         Text(
             text = "Personalize",
             style = MaterialTheme.typography.bodyMedium,
-            color = GalaxyStarWhite,
+            color = scheme.onBackground,
             modifier = Modifier.padding(top = 8.dp)
         )
     }
@@ -313,19 +331,20 @@ private fun PersonalizeTile(
 
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.SelectionBadge() {
+    val scheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
             .padding(6.dp)
             .size(22.dp)
             .align(Alignment.TopEnd)
             .clip(CircleShape)
-            .background(GalaxyNeonCyan),
+            .background(scheme.secondary),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Filled.Check,
             contentDescription = "Selected",
-            tint = GalaxyDeepSpace,
+            tint = scheme.onSecondary,
             modifier = Modifier.size(14.dp)
         )
     }

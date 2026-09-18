@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material3.Icon
@@ -25,9 +27,7 @@ import com.studyspace.timer.timer.formatTimerDuration
 import com.studyspace.timer.ui.components.GlassCard
 import com.studyspace.timer.ui.components.PrimaryButton
 import com.studyspace.timer.ui.components.SecondaryButton
-import com.studyspace.timer.ui.theme.GalaxyMutedLavender
-import com.studyspace.timer.ui.theme.GalaxyNeonCyan
-import com.studyspace.timer.ui.theme.GalaxyStarWhite
+import com.studyspace.timer.ui.util.isLandscape
 
 /**
  * Focus Mode screen: a distraction-free open-ended session, backed by the
@@ -37,25 +37,35 @@ import com.studyspace.timer.ui.theme.GalaxyStarWhite
  * This project deliberately never implements actual distraction blocking
  * via Accessibility Services or cross-app automation (see project rules) —
  * this screen is purely an honest, quiet timer, not an enforcement tool.
+ *
+ * Landscape: the card is centered with a bounded max width instead of
+ * stretching edge-to-edge, so the single centered icon/timer/buttons
+ * composition doesn't look stretched on a wide screen.
  */
 @Composable
 fun FocusScreen(modifier: Modifier = Modifier) {
     val viewModel: StopwatchTimerViewModel = viewModel(key = "focus_timer")
     val state by viewModel.state.collectAsState()
+    val landscape = isLandscape()
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalAlignment = if (landscape) Alignment.CenterHorizontally else Alignment.Start
     ) {
         Text(
             text = "Focus Mode",
             style = MaterialTheme.typography.headlineMedium,
-            color = GalaxyMutedLavender
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = if (landscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth()
         )
 
-        GlassCard(modifier = Modifier.fillMaxSize()) {
+        GlassCard(
+            modifier = (if (landscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth())
+                .fillMaxSize()
+        ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -64,13 +74,13 @@ fun FocusScreen(modifier: Modifier = Modifier) {
                 Icon(
                     imageVector = Icons.Filled.CenterFocusStrong,
                     contentDescription = null,
-                    tint = GalaxyNeonCyan,
+                    tint = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 Text(
                     text = formatTimerDuration(state.elapsedMillis),
                     style = MaterialTheme.typography.headlineLarge,
-                    color = GalaxyStarWhite
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = when (state.runState) {
@@ -80,7 +90,7 @@ fun FocusScreen(modifier: Modifier = Modifier) {
                         TimerRunState.COMPLETED -> "Session ended"
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GalaxyStarWhite.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Spacer(modifier = Modifier.height(20.dp))
 

@@ -2,10 +2,13 @@ package com.studyspace.timer.screens.pomodoro
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -30,10 +33,7 @@ import com.studyspace.timer.ui.components.GlassCard
 import com.studyspace.timer.ui.components.PrimaryButton
 import com.studyspace.timer.ui.components.ProgressRing
 import com.studyspace.timer.ui.components.SecondaryButton
-import com.studyspace.timer.ui.theme.GalaxyMutedLavender
-import com.studyspace.timer.ui.theme.GalaxyNeonCyan
-import com.studyspace.timer.ui.theme.GalaxyNeonPink
-import com.studyspace.timer.ui.theme.GalaxyStarWhite
+import com.studyspace.timer.ui.util.isLandscape
 
 /**
  * Pomodoro screen wired to [PomodoroViewModel]: real work/break cycling
@@ -42,6 +42,11 @@ import com.studyspace.timer.ui.theme.GalaxyStarWhite
  * core as every other timer mode. Stage 7 adds a duration-preset picker
  * (shown while idle, for whichever phase is up next) on top of the same
  * engine and cycling logic — see [PomodoroViewModel.selectDurationMinutes].
+ *
+ * Ring color now uses `primary` for Work and `secondary` for either break,
+ * pulled from the active palette instead of fixed neon pink/cyan.
+ * Landscape centers the same card with a bounded max width rather than
+ * stretching it edge-to-edge.
  */
 @Composable
 fun PomodoroScreen(modifier: Modifier = Modifier) {
@@ -51,13 +56,18 @@ fun PomodoroScreen(modifier: Modifier = Modifier) {
     val shortBreakMinutes by viewModel.shortBreakMinutes.collectAsState()
     val longBreakMinutes by viewModel.longBreakMinutes.collectAsState()
     val timer = uiState.timer
+    val landscape = isLandscape()
 
     val phaseLabel = when (uiState.phase) {
         PomodoroPhase.WORK -> "Work session"
         PomodoroPhase.SHORT_BREAK -> "Short break"
         PomodoroPhase.LONG_BREAK -> "Long break"
     }
-    val ringColor = if (uiState.phase == PomodoroPhase.WORK) GalaxyNeonPink else GalaxyNeonCyan
+    val ringColor = if (uiState.phase == PomodoroPhase.WORK) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.secondary
+    }
     val selectedMinutesForCurrentPhase = when (uiState.phase) {
         PomodoroPhase.WORK -> workMinutes
         PomodoroPhase.SHORT_BREAK -> shortBreakMinutes
@@ -73,15 +83,20 @@ fun PomodoroScreen(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalAlignment = if (landscape) Alignment.CenterHorizontally else Alignment.Start
     ) {
         Text(
             text = "Pomodoro",
             style = MaterialTheme.typography.headlineMedium,
-            color = GalaxyMutedLavender
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = if (landscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth()
         )
 
-        GlassCard(modifier = Modifier.fillMaxSize()) {
+        GlassCard(
+            modifier = (if (landscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth())
+                .fillMaxSize()
+        ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -103,7 +118,7 @@ fun PomodoroScreen(modifier: Modifier = Modifier) {
                     text = "Session ${uiState.completedWorkSessions + 1} • " +
                         "Work ${workMinutes}m / Break ${shortBreakMinutes}m",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GalaxyStarWhite.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -155,7 +170,7 @@ private fun DurationPresetPicker(
         Text(
             text = "Duration",
             style = MaterialTheme.typography.labelLarge,
-            color = GalaxyMutedLavender
+            color = MaterialTheme.colorScheme.tertiary
         )
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

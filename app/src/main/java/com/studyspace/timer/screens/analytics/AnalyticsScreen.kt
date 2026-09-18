@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -29,23 +29,26 @@ import com.studyspace.timer.data.repository.DayTotal
 import com.studyspace.timer.timer.formatDurationHoursMinutes
 import com.studyspace.timer.ui.components.GlassCard
 import com.studyspace.timer.ui.components.SectionHeader
-import com.studyspace.timer.ui.theme.GalaxyMutedLavender
-import com.studyspace.timer.ui.theme.GalaxyNeonCyan
-import com.studyspace.timer.ui.theme.GalaxyStarWhite
+import com.studyspace.timer.ui.util.isLandscape
 import java.time.format.TextStyle
 import java.util.Locale
 
 /**
  * Analytics dashboard (Stage 7): weekly bar chart and per-mode breakdown are
- * now real, driven by [AnalyticsViewModel] →
+ * real, driven by [AnalyticsViewModel] →
  * [com.studyspace.timer.data.repository.SessionRepository.weeklyAnalytics]
- * (Room), replacing Stage 2's "no chart data yet" placeholder and hardcoded
- * "0h" cards. An empty week still renders — flat bars and "0m" cards — since
+ * (Room). An empty week still renders — flat bars and "0m" cards — since
  * that's the honest state for a new install, not an error.
+ *
+ * Theme/rotation update: chart bars and breakdown cards read
+ * `MaterialTheme.colorScheme` instead of fixed `Galaxy*` colors, and the
+ * breakdown grid uses 3 columns in landscape (vs. 2 in portrait) since
+ * there's more horizontal room and 5 session types divide more evenly.
  */
 @Composable
 fun AnalyticsScreen(modifier: Modifier = Modifier, viewModel: AnalyticsViewModel = viewModel()) {
     val analytics by viewModel.weeklyAnalytics.collectAsState()
+    val breakdownColumns = if (isLandscape()) 3 else 2
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -56,7 +59,7 @@ fun AnalyticsScreen(modifier: Modifier = Modifier, viewModel: AnalyticsViewModel
             Text(
                 text = "Analytics",
                 style = MaterialTheme.typography.headlineMedium,
-                color = GalaxyMutedLavender
+                color = MaterialTheme.colorScheme.tertiary
             )
         }
 
@@ -78,7 +81,7 @@ fun AnalyticsScreen(modifier: Modifier = Modifier, viewModel: AnalyticsViewModel
         item {
             val typeTotals = analytics.typeTotals
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SessionType.entries.chunked(2).forEach { rowTypes ->
+                SessionType.entries.chunked(breakdownColumns).forEach { rowTypes ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -89,18 +92,18 @@ fun AnalyticsScreen(modifier: Modifier = Modifier, viewModel: AnalyticsViewModel
                                     Text(
                                         text = formatDurationHoursMinutes(typeTotals[type] ?: 0L),
                                         style = MaterialTheme.typography.titleLarge,
-                                        color = GalaxyStarWhite
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = type.displayLabel,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = GalaxyStarWhite.copy(alpha = 0.6f)
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
                                 }
                             }
                         }
-                        // Odd count (5 types): pad the last row so both cards keep equal width.
-                        if (rowTypes.size == 1) {
+                        // Pad a short last row so every card keeps equal width.
+                        repeat(breakdownColumns - rowTypes.size) {
                             androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
                         }
                     }
@@ -111,16 +114,19 @@ fun AnalyticsScreen(modifier: Modifier = Modifier, viewModel: AnalyticsViewModel
 }
 
 /**
- * Simple 7-bar vertical chart, one bar per [DayTotal], drawn on a bare
- * [Canvas] rather than pulling in a charting library — the project has
- * stayed dependency-light throughout, and 7 rounded rectangles don't need
- * one. Bar heights are relative to the tallest day in [dailyTotals]; an
- * all-zero week draws 7 flat minimum-height bars rather than 7 invisible
- * ones, so the chart doesn't look broken on a fresh install.
+ * Simple bar chart, one bar per [DayTotal], drawn on a bare [Canvas] rather
+ * than pulling in a charting library — the project has stayed
+ * dependency-light throughout. Bar heights are relative to the tallest day
+ * in [dailyTotals]; an all-zero week draws flat minimum-height bars rather
+ * than invisible ones, so the chart doesn't look broken on a fresh install.
  */
 @Composable
 private fun WeeklyBarChart(dailyTotals: List<DayTotal>, modifier: Modifier = Modifier) {
     val maxMillis = (dailyTotals.maxOfOrNull { it.totalMillis } ?: 0L).coerceAtLeast(1L)
+    val barColor = MaterialTheme.colorScheme.secondary
+    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    val trackStrokeColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+    val labelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
 
     Column(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
@@ -136,13 +142,13 @@ private fun WeeklyBarChart(dailyTotals: List<DayTotal>, modifier: Modifier = Mod
                 val barHeight = (size.height * fraction).coerceAtLeast(minBarHeight)
                 val left = index * (barWidth + gap)
                 val top = size.height - barHeight
-                val color = if (day.totalMillis > 0L) GalaxyNeonCyan else GalaxyStarWhite.copy(alpha = 0.15f)
+                val color = if (day.totalMillis > 0L) barColor else trackStrokeColor
 
                 // Faint full-height track drawn first, so a 0-minute day is
                 // still legible as a column once the (minimum-height) bar
                 // is drawn on top of it.
                 drawRoundRect(
-                    color = Color.White.copy(alpha = 0.05f),
+                    color = trackColor,
                     topLeft = Offset(left, 0f),
                     size = Size(barWidth, size.height),
                     cornerRadius = CornerRadius(barWidth * 0.25f, barWidth * 0.25f),
@@ -162,7 +168,7 @@ private fun WeeklyBarChart(dailyTotals: List<DayTotal>, modifier: Modifier = Mod
                 Text(
                     text = day.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(1),
                     style = MaterialTheme.typography.labelSmall,
-                    color = GalaxyStarWhite.copy(alpha = 0.6f),
+                    color = labelColor,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f)
                 )

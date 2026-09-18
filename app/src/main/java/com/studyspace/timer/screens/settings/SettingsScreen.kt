@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -25,14 +27,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.studyspace.timer.settings.SettingsRepository
 import com.studyspace.timer.ui.components.GlassCard
 import com.studyspace.timer.ui.components.SectionHeader
-import com.studyspace.timer.ui.theme.GalaxyNeonCyan
-import com.studyspace.timer.ui.theme.GalaxyMutedLavender
-import com.studyspace.timer.ui.theme.GalaxyStarWhite
+import com.studyspace.timer.ui.util.isLandscape
 
 /**
  * Settings screen, Stage 8: every row below reads from and writes to
  * [SettingsViewModel] (DataStore-backed via [SettingsRepository]) — none of
- * it is a disabled placeholder anymore. What each row actually does:
+ * it is a disabled placeholder. What each row actually does:
  *  - "Timer completion alerts" gates a distinct, one-shot sound
  *    notification posted whenever a Normal Timer countdown or any Pomodoro
  *    phase (work or break) finishes — separate from the always-silent
@@ -45,6 +45,10 @@ import com.studyspace.timer.ui.theme.GalaxyStarWhite
  *    by the one place this app animates ([com.studyspace.timer.ui.components.ProgressRing]).
  *  - Daily goal replaces `HomeScreen.kt`'s old fixed 4h constant; picked
  *    from a preset list the same way Pomodoro/Normal Timer durations are.
+ *
+ * Theme/rotation update: text and switch colors read `MaterialTheme.colorScheme`,
+ * and the list is width-constrained and centered in landscape rather than
+ * stretching each row's title/subtitle across the full screen width.
  */
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier, viewModel: SettingsViewModel = viewModel()) {
@@ -52,108 +56,127 @@ fun SettingsScreen(modifier: Modifier = Modifier, viewModel: SettingsViewModel =
     val keepScreenOn by viewModel.keepScreenOnEnabled.collectAsState()
     val reduceMotion by viewModel.reduceMotionEnabled.collectAsState()
     val dailyGoalMinutes by viewModel.dailyGoalMinutes.collectAsState()
+    val landscape = isLandscape()
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = if (landscape) Alignment.CenterHorizontally else Alignment.Start
     ) {
         item {
             Text(
                 text = "Settings",
                 style = MaterialTheme.typography.headlineMedium,
-                color = GalaxyMutedLavender
+                color = MaterialTheme.colorScheme.tertiary
             )
         }
 
-        item { SectionHeader(title = "Notifications") }
+        item { SectionHeader(title = "Notifications", modifier = rowWidth(landscape)) }
         item {
             SettingsSwitchRow(
                 title = "Timer completion alerts",
                 subtitle = "Play a sound when a session or Pomodoro work phase ends",
                 checked = completionAlerts,
-                onCheckedChange = viewModel::setTimerCompletionAlertsEnabled
+                onCheckedChange = viewModel::setTimerCompletionAlertsEnabled,
+                modifier = rowWidth(landscape)
             )
         }
 
-        item { SectionHeader(title = "Timer") }
+        item { SectionHeader(title = "Timer", modifier = rowWidth(landscape)) }
         item {
             SettingsSwitchRow(
                 title = "Keep screen on during sessions",
                 subtitle = "Prevents the display from sleeping while a timer is running",
                 checked = keepScreenOn,
-                onCheckedChange = viewModel::setKeepScreenOnEnabled
+                onCheckedChange = viewModel::setKeepScreenOnEnabled,
+                modifier = rowWidth(landscape)
             )
         }
         item {
             DailyGoalCard(
                 selectedMinutes = dailyGoalMinutes,
-                onSelect = viewModel::setDailyGoalMinutes
+                onSelect = viewModel::setDailyGoalMinutes,
+                modifier = rowWidth(landscape)
             )
         }
 
-        item { SectionHeader(title = "Accessibility") }
+        item { SectionHeader(title = "Accessibility", modifier = rowWidth(landscape)) }
         item {
             SettingsSwitchRow(
                 title = "Reduce motion",
                 subtitle = "Skip the easing animation on progress rings; values update instantly",
                 checked = reduceMotion,
-                onCheckedChange = viewModel::setReduceMotionEnabled
+                onCheckedChange = viewModel::setReduceMotionEnabled,
+                modifier = rowWidth(landscape)
             )
         }
 
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
+            GlassCard(modifier = rowWidth(landscape)) {
                 Text(
                     text = "Wallpaper and color palette live on the Themes tab. Every setting above is saved automatically and applies immediately.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GalaxyStarWhite.copy(alpha = 0.55f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                 )
             }
         }
     }
 }
+
+@Composable
+private fun rowWidth(landscape: Boolean): Modifier =
+    if (landscape) Modifier.widthIn(max = 560.dp).fillMaxWidth() else Modifier.fillMaxWidth()
 
 @Composable
 private fun SettingsSwitchRow(
     title: String,
     subtitle: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
+    GlassCard(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.bodyLarge, color = GalaxyStarWhite)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GalaxyStarWhite.copy(alpha = 0.55f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                 )
             }
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 modifier = Modifier.semantics { contentDescription = title },
-                colors = SwitchDefaults.colors(checkedTrackColor = GalaxyNeonCyan)
+                colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.secondary)
             )
         }
     }
 }
 
 @Composable
-private fun DailyGoalCard(selectedMinutes: Int, onSelect: (Int) -> Unit) {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
+private fun DailyGoalCard(selectedMinutes: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    GlassCard(modifier = modifier) {
         Column {
-            Text(text = "Daily study goal", style = MaterialTheme.typography.bodyLarge, color = GalaxyStarWhite)
+            Text(
+                text = "Daily study goal",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             Text(
                 text = "Used for the progress ring on Home",
                 style = MaterialTheme.typography.bodyMedium,
-                color = GalaxyStarWhite.copy(alpha = 0.55f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
             Row(
                 modifier = Modifier
