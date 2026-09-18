@@ -1,13 +1,19 @@
 package com.studyspace.timer.screens.timer
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -25,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.studyspace.timer.data.SessionType
@@ -35,7 +42,7 @@ import com.studyspace.timer.timer.formatTimerDuration
 import com.studyspace.timer.ui.components.PrimaryButton
 import com.studyspace.timer.ui.components.SecondaryButton
 import com.studyspace.timer.ui.components.TimerCard
-import com.studyspace.timer.ui.util.isLandscape
+import com.studyspace.timer.ui.util.centeredContentWidth
 
 private val timerModes = listOf("Self-Study", "Online Study", "Normal")
 
@@ -44,67 +51,124 @@ private val timerModes = listOf("Self-Study", "Online Study", "Normal")
  * Normal is a countdown from a user-selected preset. Each tab keeps its own
  * ViewModel instance (via distinct `viewModel(key = ...)` calls), obtained
  * unconditionally every recomposition regardless of [selectedTab], so a
- * timer keeps counting even while a different tab is showing and switching
- * tabs never resets or shares another mode's progress. That's also what
- * keeps the running timer intact across a rotation: the ViewModel isn't
- * scoped to this composable's position on screen, so relaying out for
- * landscape doesn't touch it.
+ * timer keeps counting even while a different tab is showing, switching
+ * tabs never resets or shares another mode's progress, and a timer that was
+ * running keeps running straight through a rotation (the ViewModel isn't
+ * scoped to this composable's on-screen position, so relaying out for
+ * landscape doesn't touch it).
  *
- * In landscape, the tab content is centered with a bounded max width
- * instead of stretching the card and buttons edge-to-edge on a wide screen.
+ * Responsive layout: the whole screen is wrapped in [BoxWithConstraints] so
+ * the layout can react to its own measured size rather than guessing from
+ * device orientation alone. Two arrangements:
+ *  - **Portrait / narrow** (`maxWidth <= maxHeight`): the original single
+ *    centered [Column] — title, tab row, then the selected mode's card and
+ *    controls stacked, capped to `centeredContentWidth` and scrollable so
+ *    nothing clips on a small screen.
+ *  - **Landscape / wide** (`maxWidth > maxHeight`): a [Row] instead, so the
+ *    title + mode tabs sit in a left pane and the timer card + controls sit
+ *    in a right pane side by side, both vertically centered. This is what
+ *    actually fixes cramped/scrolly landscape phones — stacking everything
+ *    in one column on a short-but-wide screen was what forced the excessive
+ *    scrolling; splitting the two concerns into a row lets each pane use
+ *    the screen's spare *width* instead of fighting over its scarce
+ *    *height*. The right pane still scrolls internally as a safety net for
+ *    unusually short landscape heights (e.g. a phone with the keyboard up),
+ *    so content reflows rather than clipping.
  */
 @Composable
 fun TimerScreen(modifier: Modifier = Modifier) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val landscape = isLandscape()
 
     val selfStudyViewModel: StopwatchTimerViewModel = viewModel(key = "self_study_timer")
     val onlineStudyViewModel: StopwatchTimerViewModel = viewModel(key = "online_study_timer")
     val normalViewModel: CountdownTimerViewModel = viewModel(key = "normal_timer")
 
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        horizontalAlignment = if (landscape) Alignment.CenterHorizontally else Alignment.Start
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(
-                text = "Timer",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.tertiary
+    val timerContent: @Composable () -> Unit = {
+        when (selectedTab) {
+            0 -> StopwatchTimerContent(
+                label = "Self-Study Timer",
+                type = SessionType.SELF_STUDY,
+                viewModel = selfStudyViewModel
             )
+            1 -> StopwatchTimerContent(
+                label = "Online Study Timer",
+                type = SessionType.ONLINE_STUDY,
+                viewModel = onlineStudyViewModel
+            )
+            else -> CountdownTimerContent(viewModel = normalViewModel)
         }
+    }
 
-        TabRow(
-            selectedTabIndex = selectedTab,
-            modifier = if (landscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth()
-        ) {
+    val modeTabs: @Composable () -> Unit = {
+        TabRow(selectedTabIndex = selectedTab, modifier = Modifier.fillMaxWidth()) {
             timerModes.forEachIndexed { index, label ->
                 Tab(
                     selected = selectedTab == index,
                     onClick = { selectedTab = index },
-                    text = { Text(label) }
+                    text = { Text(label, maxLines = 1) }
                 )
             }
         }
+    }
 
-        Column(
-            modifier = (if (landscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            when (selectedTab) {
-                0 -> StopwatchTimerContent(
-                    label = "Self-Study Timer",
-                    type = SessionType.SELF_STUDY,
-                    viewModel = selfStudyViewModel
-                )
-                1 -> StopwatchTimerContent(
-                    label = "Online Study Timer",
-                    type = SessionType.ONLINE_STUDY,
-                    viewModel = onlineStudyViewModel
-                )
-                else -> CountdownTimerContent(viewModel = normalViewModel)
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isLandscape = maxWidth > maxHeight
+
+        if (isLandscape) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(0.4f)
+                        .widthIn(max = 260.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Timer",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    modeTabs()
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    timerContent()
+                }
+            }
+        } else {
+            val contentWidth: Dp = centeredContentWidth(maxWidth)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(contentWidth)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Timer",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    modeTabs()
+                    timerContent()
+                }
             }
         }
     }
@@ -118,42 +182,44 @@ private fun StopwatchTimerContent(
 ) {
     val state by viewModel.state.collectAsState()
 
-    TimerCard(
-        label = label,
-        timeText = formatTimerDuration(state.elapsedMillis),
-        statusText = when (state.runState) {
-            TimerRunState.IDLE -> "Ready to start"
-            TimerRunState.RUNNING -> "Studying…"
-            TimerRunState.PAUSED -> "Paused"
-            TimerRunState.COMPLETED -> "Completed"
-        },
-        actions = {
-            when (state.runState) {
-                TimerRunState.IDLE, TimerRunState.COMPLETED -> PrimaryButton(
-                    text = "Start",
-                    onClick = { viewModel.start(label, type) },
-                    icon = Icons.Filled.PlayArrow
-                )
-                TimerRunState.RUNNING -> PrimaryButton(
-                    text = "Pause",
-                    onClick = { viewModel.pause() },
-                    icon = Icons.Filled.Pause
-                )
-                TimerRunState.PAUSED -> PrimaryButton(
-                    text = "Resume",
-                    onClick = { viewModel.resume() },
-                    icon = Icons.Filled.PlayArrow
-                )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        TimerCard(
+            label = label,
+            timeText = formatTimerDuration(state.elapsedMillis),
+            statusText = when (state.runState) {
+                TimerRunState.IDLE -> "Ready to start"
+                TimerRunState.RUNNING -> "Studying…"
+                TimerRunState.PAUSED -> "Paused"
+                TimerRunState.COMPLETED -> "Completed"
+            },
+            actions = {
+                when (state.runState) {
+                    TimerRunState.IDLE, TimerRunState.COMPLETED -> PrimaryButton(
+                        text = "Start",
+                        onClick = { viewModel.start(label, type) },
+                        icon = Icons.Filled.PlayArrow
+                    )
+                    TimerRunState.RUNNING -> PrimaryButton(
+                        text = "Pause",
+                        onClick = { viewModel.pause() },
+                        icon = Icons.Filled.Pause
+                    )
+                    TimerRunState.PAUSED -> PrimaryButton(
+                        text = "Resume",
+                        onClick = { viewModel.resume() },
+                        icon = Icons.Filled.PlayArrow
+                    )
+                }
             }
-        }
-    )
+        )
 
-    SecondaryButton(
-        text = "Stop & Reset",
-        onClick = { viewModel.reset() },
-        icon = Icons.Filled.Refresh,
-        enabled = state.runState != TimerRunState.IDLE
-    )
+        SecondaryButton(
+            text = "Stop & Reset",
+            onClick = { viewModel.reset() },
+            icon = Icons.Filled.Refresh,
+            enabled = state.runState != TimerRunState.IDLE
+        )
+    }
 }
 
 @Composable

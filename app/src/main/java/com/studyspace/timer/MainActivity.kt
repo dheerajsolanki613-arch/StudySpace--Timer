@@ -11,6 +11,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +34,7 @@ import com.studyspace.timer.service.TimerForegroundService
 import com.studyspace.timer.timer.ActiveTimerSession
 import com.studyspace.timer.ui.theme.LocalReduceMotion
 import com.studyspace.timer.ui.theme.StudySpaceTimerTheme
+import com.studyspace.timer.ui.util.LocalWindowSizeClass
 
 /**
  * Single-activity entry point. Stage 2 wired the real NavHost + bottom
@@ -54,12 +58,25 @@ import com.studyspace.timer.ui.theme.StudySpaceTimerTheme
  *    animated composable (currently just
  *    [com.studyspace.timer.ui.components.ProgressRing]) can read it without
  *    every call site needing to thread a parameter through.
+ *
+ * Responsive UI pass: also computes [WindowSizeClass] once here via
+ * `calculateWindowSizeClass(this)` (the documented pattern — it needs the
+ * Activity, not just a Context) and provides it app-wide through
+ * [LocalWindowSizeClass], so any screen can read a coarse
+ * compact/medium/expanded width bucket instead of reinventing dp
+ * breakpoints. It's recomputed automatically on rotation/fold because
+ * `setContent` recomposes on configuration change and this call sits inside
+ * that recomposition, not cached in `onCreate`'s one-time setup.
  */
 class MainActivity : ComponentActivity() {
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            StudySpaceTimerApp()
+            val windowSizeClass = calculateWindowSizeClass(this)
+            CompositionLocalProvider(LocalWindowSizeClass provides windowSizeClass) {
+                StudySpaceTimerApp()
+            }
         }
     }
 }

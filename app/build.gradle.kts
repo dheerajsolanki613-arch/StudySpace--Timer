@@ -81,6 +81,10 @@ dependencies {
     // SettingsScreen.
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3:1.2.1")
+    // Provides calculateWindowSizeClass(), used once in MainActivity to
+    // classify the window into compact/medium/expanded width so screens can
+    // make coarse layout decisions without each reinventing dp breakpoints.
+    implementation("androidx.compose.material3:material3-window-size-class:1.2.1")
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.navigation:navigation-compose:2.7.7")

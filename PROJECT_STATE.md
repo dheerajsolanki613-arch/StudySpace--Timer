@@ -50,6 +50,81 @@ this file fully before touching code.
 - ⬜ Stage 10 — Final build, release docs, packaged ZIP
 
 ## Session log
+- **Strict Focus Mode — wiring the lock into the actual UI/navigation
+  (this session):** Inspected the repo before writing anything, per the
+  working rules, and found a real gap: `timer/FocusModeViewModel.kt`,
+  `timer/FocusLockController.kt`, and `timer/FocusDuration.kt` already
+  existed (setup/active/completed stage machine, duration validation,
+  a lock singleton) but were never actually wired up —
+  `screens/focus/FocusScreen.kt` was still the old Stage-3
+  `StopwatchTimerViewModel`-based open-ended timer with no picker, no
+  lock, no completion screen; `navigation/StudySpaceNavHost.kt` and
+  `ui/components/BottomNavBar.kt` never read `FocusLockController.isLocked`
+  at all, so nothing actually stopped bottom-nav taps or the system back
+  gesture from leaving a "locked" session. This correction, not a rewrite
+  from scratch, is what this session's changes are:
+  - `screens/focus/FocusScreen.kt` (rewritten) — now drives off
+    `FocusModeViewModel.stage`: a SETUP screen (preset chips from
+    `FocusDuration.PRESET_MINUTES` + a custom minutes/seconds stepper,
+    validation-error text, a confirmation dialog showing the exact
+    selected duration before `confirmAndStart()`), an ACTIVE screen
+    (locked-state badge, `ProgressRing` countdown, Pause/Resume, an
+    "Emergency Exit" button behind its own confirmation dialog), and a
+    COMPLETED screen ("Focus Session Completed" + Done). A `BackHandler`
+    enabled only in the ACTIVE stage intercepts the system back
+    gesture/button and redirects it into the same emergency-exit
+    confirmation rather than letting it silently pop the screen.
+  - `ui/components/BottomNavBar.kt` — `StudySpaceBottomNav` takes a new
+    `locked: Boolean = false` param; every `NavigationBarItem` (including
+    the currently-selected one) is disabled while locked, so a bottom-nav
+    tap can't pop Focus off the back stack either.
+  - `navigation/StudySpaceNavHost.kt` — reads
+    `FocusLockController.isLocked` once and passes it into
+    `StudySpaceBottomNav`, so both the back gesture (handled in
+    `FocusScreen`) and bottom-nav taps (handled here) read the same single
+    shared lock state rather than each keeping an independent flag — this
+    is the "reliable shared state or session manager, not just visual
+    button disabling" requirement.
+  - `app/src/test/java/com/studyspace/timer/timer/FocusDurationTest.kt`
+    (new) — first test file in the project (`app/src/test` didn't exist
+    before this session). Covers `FocusDuration.validate`'s zero/negative/
+    over-max/invalid-seconds rejection and correct millisecond conversion
+    for both preset and custom minute+second inputs.
+  - **Correction to the record:** Stage 7's log entry above says "no
+    distraction-blocking is implemented anywhere in this app, by design"
+    — that was accurate when written, but the lock/validation classes were
+    added in an unlogged session sometime after, without a matching
+    `PROJECT_STATE.md` entry or working `FocusScreen`/nav wiring. Leaving
+    that Stage 7 text as-is (historical record, not rewritten) but flagging
+    here that it no longer reflects the app's actual behavior as of this
+    session. What's true now: navigation is locked, but only *within this
+    app's own UI* (bottom nav + back gesture) — no Accessibility Service,
+    no cross-app automation, no blocking of system functions (home button,
+    notification shade, etc.) was added or considered, consistent with the
+    "Decisions locked in" section below, which still holds.
+  - **Verification status: written but UNVERIFIED**, same limitation as
+    every prior stage — no Android SDK/Kotlin compiler in this container.
+    Checked manually: brace/paren balance across all changed/new files
+    (all balanced), that `FocusModeViewModel`'s existing public API
+    (`stage`, `state`, `durationInput`, `validationError`,
+    `selectPresetMinutes`, `updateCustomDuration`, `confirmAndStart`,
+    `pause`, `resume`, `emergencyExit`, `acknowledgeCompletion`,
+    companion `PRESET_MINUTES`) matches every call site the new
+    `FocusScreen` makes against it, and that `TimerUiState`'s
+    `progress`/`remainingMillis`/`isRunning` properties (used by the new
+    `ActiveContent`) exist exactly as read. **Not exercised at all:** an
+    actual Gradle/Compose compile, and — the single biggest real risk
+    here — on-device behavior of the `BackHandler` + disabled-bottom-nav
+    combination together (does a disabled `NavigationBarItem` still
+    intercept the tap in a way that reads as "locked" rather than
+    "broken"? does the back gesture on gesture-nav devices, not just the
+    3-button back key, actually route through `BackHandler`?). Watch the
+    next GitHub Actions run for compile errors, then device-test: start a
+    short (e.g. 15s custom) Focus session, confirm both the bottom nav and
+    back gesture/button are inert while the confirmation dialogs are
+    closed, confirm Emergency Exit actually returns control and saves a
+    partial session, and confirm natural completion also unlocks and
+    re-enables navigation on its own.
 - **Stage 8 — Settings, DataStore preferences, accessibility/animation
   polish (this session):** Inspected the Stage-7 zip first — confirmed via
   `PROJECT_STATE.md` and the actual `SettingsScreen.kt` source that Stage 7

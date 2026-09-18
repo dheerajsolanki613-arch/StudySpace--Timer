@@ -25,6 +25,7 @@ import com.studyspace.timer.screens.settings.SettingsScreen
 import com.studyspace.timer.screens.themes.ThemesScreen
 import com.studyspace.timer.screens.themes.ThemesViewModel
 import com.studyspace.timer.screens.timer.TimerScreen
+import com.studyspace.timer.timer.FocusLockController
 import com.studyspace.timer.ui.components.AppBackground
 import com.studyspace.timer.ui.components.StudySpaceBottomNav
 import com.studyspace.timer.ui.theme.AppPalettes
@@ -51,6 +52,12 @@ fun StudySpaceNavHost(navController: NavHostController = rememberNavController()
     val wallpaperSelection by themesViewModel.selection.collectAsState(initial = WallpaperSelection.Default)
     val paletteId by themesViewModel.paletteId.collectAsState(initial = AppPalettes.galaxy.id)
 
+    // Strict Focus Mode's shared lock state (see [FocusLockController]'s
+    // class doc). Read once here so both the bottom nav (below) and any
+    // future top-level nav affordance stay in sync with the single source
+    // of truth a locked Focus session actually holds.
+    val focusLocked by FocusLockController.isLocked.collectAsState()
+
     Box(modifier = Modifier.fillMaxSize()) {
         AppBackground(selection = wallpaperSelection, palette = AppPalettes.byId(paletteId))
 
@@ -58,7 +65,7 @@ fun StudySpaceNavHost(navController: NavHostController = rememberNavController()
             containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onBackground,
             bottomBar = {
-                StudySpaceBottomNav(currentRoute = currentRoute) { screen ->
+                StudySpaceBottomNav(currentRoute = currentRoute, locked = focusLocked) { screen ->
                     navController.navigate(screen.route) {
                         popUpTo(navController.graph.findStartDestination().id) {
                             saveState = true

@@ -3,6 +3,7 @@ package com.studyspace.timer.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -30,6 +31,20 @@ import java.io.File
  *
  * A dark scrim sits above any image so text and glass cards stay readable
  * regardless of how bright the chosen photo is.
+ *
+ * Scaling: every bundled/custom wallpaper is a tall portrait photo (~9:16).
+ * [ContentScale.Crop] alone handles that fine on a portrait phone screen,
+ * whose aspect ratio is close to the image's — but on a landscape/wide
+ * screen, "cover the whole width" forces the same narrow image to blow up
+ * far beyond its own resolution and then shows only a thin vertical sliver
+ * of it, which is the "excessive zoom and cropping" bug. [WallpaperImage]
+ * measures its own box and only crops when the box is *taller* than it is
+ * wide (i.e. roughly matches the photo's own portrait shape); once the box
+ * is wider than it is tall it switches to [ContentScale.Fit] instead, which
+ * scales the photo down to fit without blowing it up or slicing off most of
+ * it. The palette gradient is painted underneath in every case, so any
+ * space [ContentScale.Fit] leaves on the sides reads as an intentional
+ * themed frame rather than a blank gap.
  */
 @Composable
 fun AppBackground(
@@ -53,28 +68,69 @@ fun AppBackground(
 
         is WallpaperSelection.BuiltIn -> {
             val scrimColor = palette.previewColors.firstOrNull() ?: MaterialTheme.colorScheme.background
-            Box(modifier = modifier.fillMaxSize()) {
+            WallpaperImage(
+                modifier = modifier,
+                palette = palette,
+                scrimColor = scrimColor
+            ) { scale ->
                 Image(
                     painter = painterResource(id = selection.wallpaper.drawableRes),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = scale
                 )
-                ScrimOverlay(color = scrimColor, isDark = palette.isDark)
             }
         }
 
         is WallpaperSelection.Custom -> {
             val scrimColor = palette.previewColors.firstOrNull() ?: MaterialTheme.colorScheme.background
-            Box(modifier = modifier.fillMaxSize()) {
+            WallpaperImage(
+                modifier = modifier,
+                palette = palette,
+                scrimColor = scrimColor
+            ) { scale ->
                 Image(
                     painter = rememberAsyncImagePainter(model = File(selection.filePath)),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = scale
                 )
-                ScrimOverlay(color = scrimColor, isDark = palette.isDark)
             }
+        }
+    }
+}
+
+/**
+ * Shared shell for the two image-backed wallpaper cases: a themed gradient
+ * base (so [ContentScale.Fit] never leaves a blank gap), the image itself
+ * with orientation-appropriate scaling, then the readability scrim on top.
+ * `image` receives the [ContentScale] to draw itself with rather than
+ * picking one internally, since only this composable has the measured
+ * `BoxWithConstraints` size to decide portrait-crop vs. landscape-fit.
+ */
+@Composable
+private fun WallpaperImage(
+    palette: AppPalette,
+    scrimColor: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+    image: @Composable (ContentScale) -> Unit
+) {
+    val fallback = MaterialTheme.colorScheme.background
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isLandscape = maxWidth > maxHeight
+        val scale = if (isLandscape) ContentScale.Fit else ContentScale.Crop
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = palette.previewColors.ifEmpty { listOf(fallback, fallback) }
+                    )
+                )
+        ) {
+            image(scale)
+            ScrimOverlay(color = scrimColor, isDark = palette.isDark)
         }
     }
 }
