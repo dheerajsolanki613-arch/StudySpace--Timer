@@ -130,7 +130,16 @@ private fun WallpaperImage(
                 )
         ) {
             image(scale)
-            ScrimOverlay(color = scrimColor, isDark = palette.isDark)
+            // Landscape keeps the image at its native aspect via Fit rather
+            // than blowing it up (see the class doc), which means the
+            // busiest part of the photo sits fully within the visible
+            // frame instead of being cropped away — exactly where the
+            // Analytics/Session cards' translucent [GlassCard] fill used to
+            // sit right on top of it with too little contrast underneath
+            // ("wallpaper overlaps the UI" / "poor contrast" reports). The
+            // scrim goes stronger in that orientation specifically, rather
+            // than raising it everywhere and flattening the portrait look.
+            ScrimOverlay(color = scrimColor, isDark = palette.isDark, boosted = isLandscape)
         }
     }
 }
@@ -140,10 +149,19 @@ private fun WallpaperImage(
  * legible on top of it. Dark galaxy palettes darken the photo (as before);
  * Kawaii Pastel instead lightens it slightly toward cream, since espresso
  * text needs a *light* backdrop, not a dark one.
+ *
+ * [boosted] raises both alphas further for the landscape/[ContentScale.Fit]
+ * case, where the full, un-cropped photo is visible behind foreground
+ * content rather than just a cropped slice — see the call site's doc.
  */
 @Composable
-private fun ScrimOverlay(color: androidx.compose.ui.graphics.Color, isDark: Boolean) {
-    val scrimAlpha = if (isDark) 0.55f else 0.35f
+private fun ScrimOverlay(
+    color: androidx.compose.ui.graphics.Color,
+    isDark: Boolean,
+    boosted: Boolean = false
+) {
+    val baseAlpha = if (isDark) 0.55f else 0.35f
+    val scrimAlpha = if (boosted) (baseAlpha + 0.18f).coerceAtMost(0.9f) else baseAlpha
     Box(
         modifier = Modifier
             .fillMaxSize()

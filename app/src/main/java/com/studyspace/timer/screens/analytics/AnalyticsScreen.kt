@@ -2,25 +2,30 @@ package com.studyspace.timer.screens.analytics
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.studyspace.timer.data.SessionType
@@ -28,7 +33,7 @@ import com.studyspace.timer.data.repository.DayTotal
 import com.studyspace.timer.timer.formatDurationHoursMinutes
 import com.studyspace.timer.ui.components.GlassCard
 import com.studyspace.timer.ui.components.SectionHeader
-import com.studyspace.timer.ui.util.isLandscape
+import com.studyspace.timer.ui.util.centeredContentWidth
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -39,73 +44,150 @@ import java.util.Locale
  * (Room). An empty week still renders — flat bars and "0m" cards — since
  * that's the honest state for a new install, not an error.
  *
- * Theme/rotation update: chart bars and breakdown cards read
- * `MaterialTheme.colorScheme` instead of fixed `Galaxy*` colors, and the
- * breakdown grid uses 3 columns in landscape (vs. 2 in portrait) since
- * there's more horizontal room and 5 session types divide more evenly.
+ * Responsive layout pass: this screen previously stayed a single
+ * [LazyColumn] regardless of orientation (only the breakdown grid's column
+ * count reacted to landscape), which on a short landscape phone forced a
+ * fixed-height chart card and full stack of section headers to fight over
+ * very little vertical space. It now follows the same
+ * [BoxWithConstraints]-measured pattern as
+ * [com.studyspace.timer.screens.home.HomeScreen]:
+ *  - **Portrait / narrow**: one scrolling column, capped to
+ *    [centeredContentWidth] on anything wider than a phone, chart card at
+ *    its original comfortable height.
+ *  - **Landscape / wide**: a two-pane [Row] — the weekly chart in a left
+ *    pane, the session breakdown in a right pane — so the screen uses its
+ *    spare *width* instead of stacking everything into scarce *height*.
+ *    Each pane scrolls independently as a safety net for unusually short
+ *    heights, and the chart's own height is measured from the pane rather
+ *    than hardcoded, so it never claims more room than is actually there.
  */
 @Composable
 fun AnalyticsScreen(modifier: Modifier = Modifier, viewModel: AnalyticsViewModel = viewModel()) {
     val analytics by viewModel.weeklyAnalytics.collectAsState()
-    val breakdownColumns = if (isLandscape()) 3 else 2
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        item {
-            Text(
-                text = "Analytics",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.tertiary
-            )
-        }
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isLandscape = maxWidth > maxHeight
 
-        item { SectionHeader(title = "This Week") }
-
-        item {
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                WeeklyBarChart(
-                    dailyTotals = analytics.dailyTotals,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                )
-            }
-        }
-
-        item { SectionHeader(title = "Session Breakdown") }
-
-        item {
-            val typeTotals = analytics.typeTotals
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SessionType.entries.chunked(breakdownColumns).forEach { rowTypes ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        rowTypes.forEach { type ->
-                            GlassCard(modifier = Modifier.weight(1f)) {
-                                Column {
-                                    Text(
-                                        text = formatDurationHoursMinutes(typeTotals[type] ?: 0L),
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = type.displayLabel,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                }
-                            }
-                        }
-                        // Pad a short last row so every card keeps equal width.
-                        repeat(breakdownColumns - rowTypes.size) {
-                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+        if (isLandscape) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        Text(
+                            text = "Analytics",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    item { SectionHeader(title = "This Week") }
+                    item {
+                        GlassCard(modifier = Modifier.fillMaxWidth()) {
+                            WeeklyBarChart(
+                                dailyTotals = analytics.dailyTotals,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp)
+                            )
                         }
                     }
+                }
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item { SectionHeader(title = "Session Breakdown") }
+                    item { SessionBreakdown(typeTotals = analytics.typeTotals, columns = 2) }
+                }
+            }
+        } else {
+            val contentWidth: Dp = centeredContentWidth(maxWidth)
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Analytics",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.width(contentWidth)
+                    )
+                }
+
+                item { SectionHeader(title = "This Week", modifier = Modifier.width(contentWidth)) }
+
+                item {
+                    GlassCard(modifier = Modifier.width(contentWidth)) {
+                        WeeklyBarChart(
+                            dailyTotals = analytics.dailyTotals,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                        )
+                    }
+                }
+
+                item { SectionHeader(title = "Session Breakdown", modifier = Modifier.width(contentWidth)) }
+
+                item {
+                    SessionBreakdown(
+                        typeTotals = analytics.typeTotals,
+                        columns = 2,
+                        modifier = Modifier.width(contentWidth)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Per-mode breakdown grid, factored out of [AnalyticsScreen] so both the
+ * portrait single-column layout and the landscape right-hand pane can share
+ * it with just a different [columns] count and width constraint.
+ */
+@Composable
+private fun SessionBreakdown(
+    typeTotals: Map<SessionType, Long>,
+    columns: Int,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SessionType.entries.chunked(columns).forEach { rowTypes ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rowTypes.forEach { type ->
+                    GlassCard(modifier = Modifier.weight(1f)) {
+                        Column {
+                            Text(
+                                text = formatDurationHoursMinutes(typeTotals[type] ?: 0L),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = type.displayLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                }
+                // Pad a short last row so every card keeps equal width.
+                repeat(columns - rowTypes.size) {
+                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }

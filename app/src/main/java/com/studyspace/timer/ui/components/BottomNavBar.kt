@@ -1,6 +1,7 @@
 package com.studyspace.timer.ui.components
 
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Home
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.studyspace.timer.navigation.Screen
+import com.studyspace.timer.ui.util.isLandscape
 
 private data class BottomNavEntry(
     val screen: Screen,
@@ -43,6 +45,19 @@ private val bottomNavEntries = listOf(
  */
 private val COMPACT_LABEL_THRESHOLD = 360.dp
 
+/** Material3's default [NavigationBar] height (used in portrait). */
+private val PORTRAIT_BAR_HEIGHT = 80.dp
+
+/**
+ * Landscape height: Material3's default 80dp is sized for a portrait
+ * phone's generous bottom inset and was never adjusted for the much
+ * shorter total height a phone has in landscape, which is the "bottom
+ * navigation is too tall" bug — nearly a quarter of a ~360dp-tall
+ * landscape window otherwise goes to the bar alone. 56dp still comfortably
+ * fits a 24dp icon plus touch padding.
+ */
+private val LANDSCAPE_BAR_HEIGHT = 56.dp
+
 /**
  * Bottom navigation bar. [NavigationBar] already distributes its
  * [NavigationBarItem] children with equal weight/spacing on its own — that
@@ -50,6 +65,11 @@ private val COMPACT_LABEL_THRESHOLD = 360.dp
  * a narrow bar (5 destinations is a lot), so this measures the actual
  * available width with [BoxWithConstraints] and drops to icon-only below
  * [COMPACT_LABEL_THRESHOLD] instead of letting text wrap or get clipped.
+ *
+ * Height is explicitly set (rather than left at Material3's default) and
+ * switches with [isLandscape]: [PORTRAIT_BAR_HEIGHT] normally,
+ * [LANDSCAPE_BAR_HEIGHT] in landscape, where vertical space is scarce and
+ * labels are usually already hidden by the width check above.
  *
  * Colors are theme-aware: the active tab's pill uses `primary` with
  * `onPrimary` content, matching both the kawaii mockup's lavender-pill/
@@ -72,11 +92,13 @@ fun StudySpaceBottomNav(
     onNavigate: (Screen) -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
+    val barHeight = if (isLandscape()) LANDSCAPE_BAR_HEIGHT else PORTRAIT_BAR_HEIGHT
     BoxWithConstraints {
         val showLabels = maxWidth >= COMPACT_LABEL_THRESHOLD
         NavigationBar(
             containerColor = scheme.surface,
-            contentColor = scheme.onSurface
+            contentColor = scheme.onSurface,
+            modifier = Modifier.height(barHeight)
         ) {
             bottomNavEntries.forEach { entry ->
                 val selected = currentRoute == entry.screen.route
