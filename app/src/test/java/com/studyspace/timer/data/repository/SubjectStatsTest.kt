@@ -20,6 +20,8 @@ private class FakeStudySessionDao : StudySessionDao {
     override fun sessionsSince(sinceEpochDay: Long): Flow<List<StudySessionEntity>> = flowOf(emptyList())
     override fun distinctSessionDaysDesc(): Flow<List<Long>> = flowOf(emptyList())
     override fun sessionsForSubject(subjectId: Long): Flow<List<StudySessionEntity>> = flowOf(emptyList())
+    override fun allSessions(): Flow<List<StudySessionEntity>> = flowOf(emptyList())
+    override suspend fun deleteAll() = error("not used by this test")
 }
 
 class SubjectStatsTest {
