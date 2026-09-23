@@ -7,18 +7,22 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -43,6 +48,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.studyspace.timer.ui.components.SectionHeader
 import com.studyspace.timer.ui.theme.AppPalettes
+import com.studyspace.timer.ui.theme.DeepSpaceBlue
+import com.studyspace.timer.ui.theme.GalaxyCrimsonRed
+import com.studyspace.timer.ui.theme.GalaxyEmeraldGreen
+import com.studyspace.timer.ui.theme.GalaxyNeonCyan
+import com.studyspace.timer.ui.theme.GalaxyNeonPink
+import com.studyspace.timer.ui.theme.GalaxySolarOrange
+import com.studyspace.timer.ui.theme.MinimalLightBlue
+import com.studyspace.timer.ui.theme.contrastSafeContentColor
 import com.studyspace.timer.ui.util.isLandscape
 import com.studyspace.timer.wallpaper.WallpaperCatalog
 import com.studyspace.timer.wallpaper.WallpaperSelection
@@ -72,6 +85,7 @@ fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = vie
     val wallpaperSelection by viewModel.selection.collectAsState()
     val importError by viewModel.importError.collectAsState()
     val paletteId by viewModel.paletteId.collectAsState()
+    val accentArgb by viewModel.accentArgb.collectAsState()
     val activePalette = AppPalettes.byId(paletteId)
     val columns = if (isLandscape()) 3 else 2
 
@@ -198,6 +212,99 @@ fun ThemesScreen(modifier: Modifier = Modifier, viewModel: ThemesViewModel = vie
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
+        }
+
+        item(span = { GridItemSpan(columns) }) {
+            SectionHeader(title = "Accent color")
+        }
+        item(span = { GridItemSpan(columns) }) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Personalize just the accent, on top of whichever palette you've picked above.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    AccentSwatch(
+                        color = activePalette.colorScheme.primary,
+                        label = "Default",
+                        selected = accentArgb == null,
+                        showAsDefault = true,
+                        onClick = { viewModel.clearAccent() }
+                    )
+                    ACCENT_SWATCHES.forEach { swatch ->
+                        AccentSwatch(
+                            color = swatch,
+                            label = null,
+                            selected = accentArgb == swatch.toArgb(),
+                            showAsDefault = false,
+                            onClick = { viewModel.setAccent(swatch.toArgb()) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Phase 15 — Accent customization's curated swatch set. A fixed, pre-picked
+ * list rather than a free HSV/wheel picker: every one of these already
+ * clears WCAG contrast against every palette's background via
+ * [com.studyspace.timer.ui.theme.effectiveColorScheme]'s
+ * `contrastSafeContentColor` fallback, and a curated set is simpler to keep
+ * legible than validating an arbitrary user-picked hue. Draws from existing
+ * palette accents (so a swatch always looks "at home" in the app) plus two
+ * new hues not already used by any palette (amber, violet) for more choice.
+ */
+private val ACCENT_SWATCHES: List<Color> = listOf(
+    GalaxyNeonPink, GalaxyNeonCyan, GalaxySolarOrange, GalaxyEmeraldGreen, GalaxyCrimsonRed,
+    DeepSpaceBlue, MinimalLightBlue, Color(0xFFFFC107), Color(0xFF9C6ADE)
+)
+
+@Composable
+private fun AccentSwatch(color: Color, label: String?, selected: Boolean, showAsDefault: Boolean, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .then(
+                    if (showAsDefault) {
+                        Modifier.background(Brush.sweepGradient(listOf(color, Color.Transparent, color)))
+                    } else {
+                        Modifier.background(color)
+                    }
+                )
+                .border(
+                    width = if (selected) 3.dp else 1.dp,
+                    color = if (selected) MaterialTheme.colorScheme.onBackground else Color.White.copy(alpha = 0.3f),
+                    shape = CircleShape
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = "Selected",
+                    tint = contrastSafeContentColor(background = color, preferred = Color.White),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        if (label != null) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
         }
     }
 }

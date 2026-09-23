@@ -1,6 +1,8 @@
 package com.studyspace.timer.data.db
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -32,8 +34,34 @@ import androidx.room.PrimaryKey
  *   in the device's zone at the moment the session started — a plain Long
  *   column so day-bucketed queries (today's total, this week, streak) don't
  *   need date math inside SQL.
+ * @param subjectId optional [SubjectEntity] this session is attributed to
+ *   (Subject phase). `SET_NULL` on delete: removing a subject un-attributes
+ *   its past sessions rather than deleting them — study history is never
+ *   destroyed by a subject-management action.
+ * @param taskId optional [TaskEntity] this session was started from (Tasks
+ *   phase) — set once timer screens gain "start from a task" (a later
+ *   phase); `null` for every session recorded before then and for any
+ *   session not started from a task. `SET_NULL` on delete, same reasoning
+ *   as [subjectId].
  */
-@Entity(tableName = "study_sessions")
+@Entity(
+    tableName = "study_sessions",
+    foreignKeys = [
+        ForeignKey(
+            entity = SubjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["subjectId"],
+            onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
+            entity = TaskEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["taskId"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    indices = [Index("subjectId"), Index("taskId")]
+)
 data class StudySessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
     val type: String,
@@ -41,5 +69,8 @@ data class StudySessionEntity(
     val startEpochMillis: Long,
     val durationMillis: Long,
     val completedNaturally: Boolean,
-    val dateEpochDay: Long
+    val dateEpochDay: Long,
+    val subjectId: Long? = null,
+    val taskId: Long? = null
 )
+

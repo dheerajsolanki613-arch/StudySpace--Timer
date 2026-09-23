@@ -11,15 +11,20 @@ import androidx.compose.runtime.Composable
  * button reads its colors from `MaterialTheme.colorScheme` (no more fixed
  * `Galaxy*` constants outside of [AppPalettes] itself), so swapping the
  * scheme here re-themes the whole app, backgrounds included.
+ *
+ * [accentArgb] (Phase 15 — Accent customization) optionally overrides just
+ * the selected palette's accent roles via [effectiveColorScheme]; `null`
+ * (the default) uses the palette's own accent unchanged.
  */
 @Composable
 fun StudySpaceTimerTheme(
     paletteId: String = AppPalettes.galaxy.id,
+    accentArgb: Int? = null,
     content: @Composable () -> Unit
 ) {
     val palette = AppPalettes.byId(paletteId)
     MaterialTheme(
-        colorScheme = palette.colorScheme,
+        colorScheme = palette.effectiveColorScheme(accentArgb),
         typography = StudySpaceTypography,
         content = content
     )

@@ -35,6 +35,8 @@ import com.studyspace.timer.ui.components.GlassCard
 import com.studyspace.timer.ui.components.PrimaryButton
 import com.studyspace.timer.ui.components.ProgressRing
 import com.studyspace.timer.ui.components.SecondaryButton
+import com.studyspace.timer.ui.components.SessionAttributionPicker
+import com.studyspace.timer.ui.components.filteredForSubject
 import com.studyspace.timer.ui.util.centeredContentWidth
 
 /**
@@ -62,6 +64,12 @@ fun PomodoroScreen(modifier: Modifier = Modifier) {
     val workMinutes by viewModel.workMinutes.collectAsState()
     val shortBreakMinutes by viewModel.shortBreakMinutes.collectAsState()
     val longBreakMinutes by viewModel.longBreakMinutes.collectAsState()
+    val sessionsPerLongBreak by viewModel.sessionsPerLongBreak.collectAsState()
+    val subjects by viewModel.subjects.collectAsState()
+    val tasks by viewModel.tasks.collectAsState()
+    val selectedSubjectId by viewModel.selectedSubjectId.collectAsState()
+    val selectedTaskId by viewModel.selectedTaskId.collectAsState()
+    val customLabel by viewModel.customLabel.collectAsState()
     val timer = uiState.timer
 
     val phaseLabel = when (uiState.phase) {
@@ -140,6 +148,22 @@ fun PomodoroScreen(modifier: Modifier = Modifier) {
                                 onSelect = { minutes -> viewModel.selectDurationMinutes(uiState.phase, minutes) }
                             )
                             Spacer(modifier = Modifier.height(16.dp))
+                            SessionsPerLongBreakPicker(
+                                selected = sessionsPerLongBreak,
+                                onSelect = viewModel::selectSessionsPerLongBreak
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            SessionAttributionPicker(
+                                subjects = subjects,
+                                tasks = tasks.filteredForSubject(selectedSubjectId),
+                                selectedSubjectId = selectedSubjectId,
+                                selectedTaskId = selectedTaskId,
+                                customLabel = customLabel,
+                                onSubjectSelected = viewModel::selectSubject,
+                                onTaskSelected = viewModel::selectTask,
+                                onLabelChange = viewModel::setCustomLabel
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
 
                         when (timer.runState) {
@@ -192,6 +216,30 @@ private fun DurationPresetPicker(
                     selected = selectedMinutes == minutes,
                     onClick = { onSelect(minutes) },
                     label = { Text("${minutes}m") }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionsPerLongBreakPicker(
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "Long break every",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.tertiary
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(PomodoroViewModel.SESSIONS_PER_LONG_BREAK_PRESETS) { count ->
+                FilterChip(
+                    selected = selected == count,
+                    onClick = { onSelect(count) },
+                    label = { Text("${count} sessions") }
                 )
             }
         }

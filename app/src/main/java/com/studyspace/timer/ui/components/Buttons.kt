@@ -13,10 +13,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.studyspace.timer.ui.theme.contrastSafeContentColor
 
 /**
  * Primary filled action button (Start, Save, Confirm). Fills the available
@@ -97,25 +96,4 @@ fun SecondaryButton(
             color = MaterialTheme.colorScheme.onBackground
         )
     }
-}
-
-/**
- * Picks a readable text/icon color for [background]: keeps [preferred] if
- * it already clears WCAG AA (4.5:1) against it, otherwise falls back to
- * whichever of pure white/near-black actually contrasts better against
- * that exact color — so a button never ships unreadable text, for any
- * palette, including ones added later.
- */
-private fun contrastSafeContentColor(background: Color, preferred: Color): Color {
-    fun contrastRatio(foreground: Color, bg: Color): Float {
-        val l1 = foreground.luminance() + 0.05f
-        val l2 = bg.luminance() + 0.05f
-        return maxOf(l1, l2) / minOf(l1, l2)
-    }
-
-    if (contrastRatio(preferred, background) >= 4.5f) return preferred
-
-    val white = Color.White
-    val nearBlack = Color(0xFF10101F)
-    return if (contrastRatio(white, background) >= contrastRatio(nearBlack, background)) white else nearBlack
 }

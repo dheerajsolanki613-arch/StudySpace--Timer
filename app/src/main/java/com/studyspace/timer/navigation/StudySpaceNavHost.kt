@@ -13,15 +13,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.studyspace.timer.screens.analytics.AnalyticsScreen
+import com.studyspace.timer.screens.data.DataManagementScreen
 import com.studyspace.timer.screens.focus.FocusScreen
+import com.studyspace.timer.screens.goals.GoalsScreen
+import com.studyspace.timer.screens.achievements.AchievementsScreen
 import com.studyspace.timer.screens.home.HomeScreen
+import com.studyspace.timer.screens.planner.PlannerScreen
 import com.studyspace.timer.screens.pomodoro.PomodoroScreen
 import com.studyspace.timer.screens.settings.SettingsScreen
+import com.studyspace.timer.screens.subjects.SubjectDetailScreen
+import com.studyspace.timer.screens.subjects.SubjectsScreen
+import com.studyspace.timer.screens.summary.DailySummaryScreen
+import com.studyspace.timer.screens.tasks.TasksScreen
 import com.studyspace.timer.screens.themes.ThemesScreen
 import com.studyspace.timer.screens.themes.ThemesViewModel
 import com.studyspace.timer.screens.timer.TimerScreen
@@ -84,16 +94,69 @@ fun StudySpaceNavHost(navController: NavHostController = rememberNavController()
                 composable(Screen.Home.route) {
                     HomeScreen(
                         onOpenTimer = { navController.navigate(Screen.Timer.route) },
+                        onOpenTimerTab = { tab -> navController.navigate(Screen.QuickStartTimer.createRoute(tab)) },
                         onOpenPomodoro = { navController.navigate(Screen.Pomodoro.route) },
-                        onOpenFocus = { navController.navigate(Screen.Focus.route) }
+                        onOpenFocus = { navController.navigate(Screen.Focus.route) },
+                        onOpenGoals = { navController.navigate(Screen.Goals.route) },
+                        onOpenSubjects = { navController.navigate(Screen.Subjects.route) },
+                        onOpenTasks = { navController.navigate(Screen.Tasks.route) },
+                        onOpenPlanner = { navController.navigate(Screen.Planner.route) },
+                        onOpenAchievements = { navController.navigate(Screen.Achievements.route) },
+                        onOpenDailySummary = { navController.navigate(Screen.DailySummary.route) }
                     )
                 }
                 composable(Screen.Timer.route) { TimerScreen() }
+                composable(
+                    route = Screen.TimerFromPlan.route,
+                    arguments = listOf(
+                        navArgument("subjectId") { type = NavType.LongType },
+                        navArgument("taskId") { type = NavType.LongType }
+                    )
+                ) { backStackEntry ->
+                    val subjectId = backStackEntry.arguments?.getLong("subjectId")?.takeIf { it != Screen.TimerFromPlan.NONE }
+                    val taskId = backStackEntry.arguments?.getLong("taskId")?.takeIf { it != Screen.TimerFromPlan.NONE }
+                    TimerScreen(initialSubjectId = subjectId, initialTaskId = taskId)
+                }
+                composable(
+                    route = Screen.QuickStartTimer.route,
+                    arguments = listOf(navArgument("tab") { type = NavType.IntType })
+                ) { backStackEntry ->
+                    val tab = backStackEntry.arguments?.getInt("tab") ?: 0
+                    TimerScreen(initialTab = tab)
+                }
                 composable(Screen.Pomodoro.route) { PomodoroScreen() }
                 composable(Screen.Focus.route) { FocusScreen() }
+                composable(Screen.Goals.route) { GoalsScreen() }
+                composable(Screen.Subjects.route) {
+                    SubjectsScreen(
+                        onOpenSubject = { subjectId ->
+                            navController.navigate(Screen.SubjectDetail.createRoute(subjectId))
+                        }
+                    )
+                }
+                composable(
+                    route = Screen.SubjectDetail.route,
+                    arguments = listOf(navArgument("subjectId") { type = NavType.LongType })
+                ) { backStackEntry ->
+                    val subjectId = backStackEntry.arguments?.getLong("subjectId") ?: return@composable
+                    SubjectDetailScreen(subjectId = subjectId, onBack = { navController.popBackStack() })
+                }
+                composable(Screen.Tasks.route) { TasksScreen() }
+                composable(Screen.Planner.route) {
+                    PlannerScreen(
+                        onStartPlan = { subjectId, taskId ->
+                            navController.navigate(Screen.TimerFromPlan.createRoute(subjectId, taskId))
+                        }
+                    )
+                }
+                composable(Screen.Achievements.route) { AchievementsScreen() }
+                composable(Screen.DailySummary.route) { DailySummaryScreen() }
                 composable(Screen.Analytics.route) { AnalyticsScreen() }
                 composable(Screen.Themes.route) { ThemesScreen() }
-                composable(Screen.Settings.route) { SettingsScreen() }
+                composable(Screen.Settings.route) {
+                    SettingsScreen(onOpenDataManagement = { navController.navigate(Screen.DataManagement.route) })
+                }
+                composable(Screen.DataManagement.route) { DataManagementScreen() }
             }
         }
     }

@@ -41,6 +41,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.studyspace.timer.data.db.SubjectEntity
+import com.studyspace.timer.data.db.TaskEntity
 import com.studyspace.timer.timer.FocusDurationInput
 import com.studyspace.timer.timer.FocusModeViewModel
 import com.studyspace.timer.timer.FocusStage
@@ -52,6 +54,8 @@ import com.studyspace.timer.ui.components.GlassCardAccent
 import com.studyspace.timer.ui.components.PrimaryButton
 import com.studyspace.timer.ui.components.ProgressRing
 import com.studyspace.timer.ui.components.SecondaryButton
+import com.studyspace.timer.ui.components.SessionAttributionPicker
+import com.studyspace.timer.ui.components.filteredForSubject
 import com.studyspace.timer.ui.util.centeredContentWidth
 
 /**
@@ -86,6 +90,11 @@ fun FocusScreen(modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsState()
     val durationInput by viewModel.durationInput.collectAsState()
     val validationError by viewModel.validationError.collectAsState()
+    val subjects by viewModel.subjects.collectAsState()
+    val tasks by viewModel.tasks.collectAsState()
+    val selectedSubjectId by viewModel.selectedSubjectId.collectAsState()
+    val selectedTaskId by viewModel.selectedTaskId.collectAsState()
+    val customLabel by viewModel.customLabel.collectAsState()
 
     var showStartConfirm by remember { mutableStateOf(false) }
     var showEmergencyExitConfirm by remember { mutableStateOf(false) }
@@ -125,6 +134,14 @@ fun FocusScreen(modifier: Modifier = Modifier) {
                         presetMinutes = FocusModeViewModel.PRESET_MINUTES,
                         onSelectPreset = viewModel::selectPresetMinutes,
                         onCustomChange = viewModel::updateCustomDuration,
+                        subjects = subjects,
+                        tasks = tasks.filteredForSubject(selectedSubjectId),
+                        selectedSubjectId = selectedSubjectId,
+                        selectedTaskId = selectedTaskId,
+                        customLabel = customLabel,
+                        onSubjectSelected = viewModel::selectSubject,
+                        onTaskSelected = viewModel::selectTask,
+                        onLabelChange = viewModel::setCustomLabel,
                         onStartRequested = { showStartConfirm = true }
                     )
                     FocusStage.ACTIVE -> ActiveContent(
@@ -207,6 +224,14 @@ private fun SetupContent(
     presetMinutes: List<Int>,
     onSelectPreset: (Int) -> Unit,
     onCustomChange: (Int, Int) -> Unit,
+    subjects: List<SubjectEntity>,
+    tasks: List<TaskEntity>,
+    selectedSubjectId: Long?,
+    selectedTaskId: Long?,
+    customLabel: String,
+    onSubjectSelected: (Long?) -> Unit,
+    onTaskSelected: (Long?) -> Unit,
+    onLabelChange: (String) -> Unit,
     onStartRequested: () -> Unit
 ) {
     GlassCard(modifier = Modifier.fillMaxWidth()) {
@@ -293,6 +318,18 @@ private fun SetupContent(
                     color = MaterialTheme.colorScheme.error
                 )
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            SessionAttributionPicker(
+                subjects = subjects,
+                tasks = tasks,
+                selectedSubjectId = selectedSubjectId,
+                selectedTaskId = selectedTaskId,
+                customLabel = customLabel,
+                onSubjectSelected = onSubjectSelected,
+                onTaskSelected = onTaskSelected,
+                onLabelChange = onLabelChange
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
             PrimaryButton(text = "Start Focus", onClick = onStartRequested)

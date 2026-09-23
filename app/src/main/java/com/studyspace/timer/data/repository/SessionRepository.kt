@@ -15,10 +15,26 @@ import java.time.ZoneId
  * [recordSession] when a session ends; Home (Stage 5) and, later, Analytics
  * (Stage 7) read [recentSessions] and [studyStats].
  */
-class SessionRepository(private val dao: StudySessionDao) {
+class SessionRepository(
+    private val dao: StudySessionDao,
+    /**
+     * Phase 12: called after a session has been written (never for one dropped
+     * by the minimum-duration filter), so something outside the data layer —
+     * currently the goal-reached notification — can react without this class
+     * knowing about notifications. Defaults to none, so tests and any other
+     * construction site are unaffected.
+     */
+    private val onSessionRecorded: ((StudySessionEntity) -> Unit)? = null
+) {
 
     /** Most recent sessions across every mode, for "Recent Activity". */
     fun recentSessions(limit: Int = 10): Flow<List<StudySessionEntity>> = dao.recentSessions(limit)
+
+    /** Phase 7 (Planned vs Actual): every session on or after [sinceEpochDay], for [computePlannedVsActual]. */
+    fun sessionsSince(sinceEpochDay: Long): Flow<List<StudySessionEntity>> = dao.sessionsSince(sinceEpochDay)
+
+    /** Phase 8 (Advanced Analytics): every session ever recorded, for [sessionsInRange] to filter client-side. */
+    fun allSessions(): Flow<List<StudySessionEntity>> = dao.allSessions()
 
     /**
      * Rolling "today" + "this week" + "streak" numbers. Computed from two
@@ -83,6 +99,50 @@ class SessionRepository(private val dao: StudySessionDao) {
     }
 
     /**
+     * Subject Detail's aggregate numbers for one subject, recomputed on
+     * every emission from [dao.sessionsForSubject] — same "small dataset,
+     * fine to recompute in Kotlin" reasoning [studyStats] and
+     * [weeklyAnalytics] already use, rather than a set of bespoke
+     * per-stat SQL queries.
+     */
+    fun subjectStats(subjectId: Long): Flow<SubjectStats> {
+        val today = LocalDate.now()
+        return dao.sessionsForSubject(subjectId).map { sessions ->
+            computeSubjectStats(sessions, today)
+        }
+    }
+
+    /**
+     * Pure aggregation over an already-fetched session list — split out
+     * from [subjectStats] so it can be covered by a fast local JUnit test
+     * (see `SubjectStatsTest`) without a Room/Flow/Android dependency,
+     * same reasoning as [computeStreak].
+     */
+    internal fun computeSubjectStats(sessions: List<StudySessionEntity>, today: LocalDate): SubjectStats {
+        val todayEpochDay = today.toEpochDay()
+        val weekStartEpochDay = today.minusDays(6).toEpochDay()
+        val monthStartEpochDay = today.minusDays(29).toEpochDay()
+
+        val total = sessions.sumOf { it.durationMillis }
+        val todayTotal = sessions.filter { it.dateEpochDay == todayEpochDay }.sumOf { it.durationMillis }
+        val weekTotal = sessions.filter { it.dateEpochDay >= weekStartEpochDay }.sumOf { it.durationMillis }
+        val monthTotal = sessions.filter { it.dateEpochDay >= monthStartEpochDay }.sumOf { it.durationMillis }
+        val count = sessions.size
+        val average = if (count > 0) total / count else 0L
+        val distinctDaysDesc = sessions.map { it.dateEpochDay }.distinct().sortedDescending()
+
+        return SubjectStats(
+            totalMillis = total,
+            todayMillis = todayTotal,
+            weekMillis = weekTotal,
+            monthMillis = monthTotal,
+            sessionCount = count,
+            averageSessionMillis = average,
+            streakDays = computeStreak(distinctDaysDesc, todayEpochDay)
+        )
+    }
+
+    /**
      * Saves a session, unless it's shorter than [MIN_RECORDABLE_MILLIS] —
      * a floor to keep an accidental Start-then-immediately-Stop tap from
      * polluting history and streak/stat counts as a "real" session.
@@ -92,20 +152,24 @@ class SessionRepository(private val dao: StudySessionDao) {
         label: String,
         startEpochMillis: Long,
         durationMillis: Long,
-        completedNaturally: Boolean
+        completedNaturally: Boolean,
+        subjectId: Long? = null,
+        taskId: Long? = null
     ) {
         if (durationMillis < MIN_RECORDABLE_MILLIS) return
         val startDate = Instant.ofEpochMilli(startEpochMillis).atZone(ZoneId.systemDefault()).toLocalDate()
-        dao.insert(
-            StudySessionEntity(
-                type = type.name,
-                label = label,
-                startEpochMillis = startEpochMillis,
-                durationMillis = durationMillis,
-                completedNaturally = completedNaturally,
-                dateEpochDay = startDate.toEpochDay()
-            )
+        val session = StudySessionEntity(
+            type = type.name,
+            label = label,
+            startEpochMillis = startEpochMillis,
+            durationMillis = durationMillis,
+            completedNaturally = completedNaturally,
+            dateEpochDay = startDate.toEpochDay(),
+            subjectId = subjectId,
+            taskId = taskId
         )
+        dao.insert(session)
+        onSessionRecorded?.invoke(session)
     }
 
     /**

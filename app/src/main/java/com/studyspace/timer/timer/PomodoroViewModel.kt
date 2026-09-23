@@ -5,12 +5,17 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.studyspace.timer.StudySpaceApplication
 import com.studyspace.timer.data.SessionType
+import com.studyspace.timer.data.db.SubjectEntity
+import com.studyspace.timer.data.db.TaskEntity
+import com.studyspace.timer.service.CompletionFeedback
 import com.studyspace.timer.service.TimerNotifications
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,15 +32,18 @@ data class PomodoroUiState(
  * Work/break cycle manager built on the shared [TimerEngine]. Defaults to
  * 25m work / 5m short break / 15m long break every 4th completed work
  * session (Stage 3); Stage 7 adds [selectDurationMinutes] so each phase's
- * length is user-selectable from a preset list while idle — the cycling
- * logic itself (which phase comes next, every-4th-session long break)
- * doesn't change. Duration choices live in memory only for now — surviving
- * an app restart needs DataStore, which is Stage 8's job.
+ * length is user-selectable from a preset list while idle, and Phase 5 adds
+ * [selectSessionsPerLongBreak] so "every 4th" itself is user-selectable too
+ * — the cycling logic doesn't change, only which numbers it plugs into.
+ * Duration/session-count choices live in memory only for now — surviving
+ * an app restart needs DataStore, which is Stage 8's job and was never
+ * revisited for these specific values.
  *
  * When a phase's countdown completes, [advanceToNextPhase] runs and the
  * engine resets to idle for the new phase — the user starts the next phase
  * explicitly rather than it auto-starting, so a completed Pomodoro session
- * never silently keeps running unattended.
+ * never silently keeps running unattended. (Auto-starting the next
+ * phase/break is a still-open Phase 5 item — see `PROJECT_STATE.md`.)
  *
  * Stage 4: [start] publishes to [ActiveTimerSession] with a label reflecting
  * the *current* phase ("Pomodoro — Work", "Pomodoro — Short Break", etc.).
@@ -58,6 +66,22 @@ data class PomodoroUiState(
  * Work and both break types — gated by the "Timer completion alerts"
  * Settings toggle. This is separate from, and unaffected by, the
  * Work-only session-recording rule described above.
+ *
+ * Phase 5 (timer integration): [subjects]/[tasks]/[selectSubject]/
+ * [selectTask]/[setCustomLabel] give a Pomodoro cycle the same optional
+ * attribution the other timer modes have — see
+ * [StopwatchTimerViewModel]'s doc for the task-selects-its-subject
+ * reasoning. Unlike the single-shot modes, the choice is made once (while
+ * idle, before the first Work phase starts) and then carries across every
+ * Work/Break/Work transition for the rest of that cycle — every Work
+ * session saved from one cycle is attributed the same way, rather than
+ * asking again before every single phase. It only clears on a full
+ * [reset] back to Work #1, same point everything else about the cycle
+ * resets. The live [ActiveTimerSession] label still always shows the
+ * current *phase* ("Pomodoro — Work"/"— Short Break"/"— Long Break") —
+ * [customLabel] only renames the saved Work session's own `label` field,
+ * not that in-progress chrome, since knowing which phase is running is
+ * more useful there than a user-chosen nickname would be.
  */
 class PomodoroViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as StudySpaceApplication
@@ -73,16 +97,37 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
     private val _completedWorkSessions = MutableStateFlow(0)
 
     // Stage 7: user-selectable durations per phase, in-memory only for now
-    // (persisting the choice across app restarts is Stage 8's DataStore
-    // settings job — this is the cycling/engine half of "custom durations").
-    // Defaults match the Stage 3 fixed values so behavior is unchanged
-    // until the user actually picks something different.
+    // (persisting the choice across app restarts is Stage 8/DataStore work
+    // that was never revisited for these specific values). Defaults match
+    // the Stage 3 fixed values so behavior is unchanged until the user
+    // actually picks something different.
     private val _workMinutes = MutableStateFlow(DEFAULT_WORK_MINUTES)
     private val _shortBreakMinutes = MutableStateFlow(DEFAULT_SHORT_BREAK_MINUTES)
     private val _longBreakMinutes = MutableStateFlow(DEFAULT_LONG_BREAK_MINUTES)
     val workMinutes: StateFlow<Int> = _workMinutes
     val shortBreakMinutes: StateFlow<Int> = _shortBreakMinutes
     val longBreakMinutes: StateFlow<Int> = _longBreakMinutes
+
+    // Phase 5: "every Nth work session is followed by a long break" is now
+    // itself a setting rather than the fixed constant it used to be.
+    private val _sessionsPerLongBreak = MutableStateFlow(DEFAULT_SESSIONS_PER_LONG_BREAK)
+    val sessionsPerLongBreak: StateFlow<Int> = _sessionsPerLongBreak.asStateFlow()
+
+    val subjects: StateFlow<List<SubjectEntity>> = app.subjectRepository.allSubjects()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val tasks: StateFlow<List<TaskEntity>> = app.taskRepository.allTasks()
+        .map { list -> list.filterNot { it.completed } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _selectedSubjectId = MutableStateFlow<Long?>(null)
+    val selectedSubjectId: StateFlow<Long?> = _selectedSubjectId.asStateFlow()
+
+    private val _selectedTaskId = MutableStateFlow<Long?>(null)
+    val selectedTaskId: StateFlow<Long?> = _selectedTaskId.asStateFlow()
+
+    private val _customLabel = MutableStateFlow("")
+    val customLabel: StateFlow<String> = _customLabel.asStateFlow()
 
     private var activeSessionId: String? = null
     private var sessionStartEpochMillis: Long = 0L
@@ -107,6 +152,34 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
             PomodoroPhase.SHORT_BREAK -> _shortBreakMinutes.value = minutes
             PomodoroPhase.LONG_BREAK -> _longBreakMinutes.value = minutes
         }
+    }
+
+    /** Only takes effect while idle, same guard as [selectDurationMinutes]. */
+    fun selectSessionsPerLongBreak(count: Int) {
+        if (!engine.state.value.isIdle) return
+        _sessionsPerLongBreak.value = count.coerceAtLeast(1)
+    }
+
+    /** Only takes effect while idle — see the class doc's Phase 5 note on why this is a per-cycle, not per-phase, choice. */
+    fun selectSubject(subjectId: Long?) {
+        if (!engine.state.value.isIdle) return
+        _selectedSubjectId.value = subjectId
+        val selectedTask = tasks.value.find { it.id == _selectedTaskId.value }
+        if (selectedTask != null && selectedTask.subjectId != subjectId) {
+            _selectedTaskId.value = null
+        }
+    }
+
+    fun selectTask(taskId: Long?) {
+        if (!engine.state.value.isIdle) return
+        _selectedTaskId.value = taskId
+        if (taskId != null) {
+            tasks.value.find { it.id == taskId }?.subjectId?.let { _selectedSubjectId.value = it }
+        }
+    }
+
+    fun setCustomLabel(text: String) {
+        if (engine.state.value.isIdle) _customLabel.value = text
     }
 
     fun start() {
@@ -134,6 +207,9 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
         _phase.value = PomodoroPhase.WORK
         _completedWorkSessions.value = 0
         clearActiveSession()
+        _selectedSubjectId.value = null
+        _selectedTaskId.value = null
+        _customLabel.value = ""
     }
 
     private fun onPhaseCompleted() {
@@ -152,24 +228,36 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
      *  know a break finished just as much as a work session, since the app
      *  deliberately never auto-starts the next phase (see class doc). See
      *  [TimerNotifications.notifyCompletion] for why this is called
-     *  directly here rather than observed from the background service. */
+     *  directly here rather than observed from the background service.
+     *  Phase 15: also plays the independent sound/vibration cue for every
+     *  phase, same as the notification — see [CompletionFeedback]. */
     private fun maybeNotifyCompletion(finishedPhase: PomodoroPhase) {
         viewModelScope.launch {
             if (settingsRepository.timerCompletionAlertsEnabled.first()) {
                 TimerNotifications.notifyCompletion(getApplication(), "Pomodoro \u2014 ${phaseLabel(finishedPhase)}")
             }
+            CompletionFeedback.play(
+                context = getApplication(),
+                soundEnabled = settingsRepository.soundEnabled.first(),
+                vibrationEnabled = settingsRepository.vibrationEnabled.first()
+            )
         }
     }
 
     private fun saveWorkSession(durationMillis: Long, completedNaturally: Boolean) {
         val startedAt = sessionStartEpochMillis
+        val label = _customLabel.value.ifBlank { "Pomodoro \u2014 Work" }
+        val subjectId = _selectedSubjectId.value
+        val taskId = _selectedTaskId.value
         viewModelScope.launch {
             repository.recordSession(
                 type = SessionType.POMODORO,
-                label = "Pomodoro \u2014 Work",
+                label = label,
                 startEpochMillis = startedAt,
                 durationMillis = durationMillis,
-                completedNaturally = completedNaturally
+                completedNaturally = completedNaturally,
+                subjectId = subjectId,
+                taskId = taskId
             )
         }
     }
@@ -188,7 +276,7 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
         if (_phase.value == PomodoroPhase.WORK) {
             val completed = _completedWorkSessions.value + 1
             _completedWorkSessions.value = completed
-            _phase.value = if (completed % SESSIONS_PER_LONG_BREAK == 0) {
+            _phase.value = if (completed % _sessionsPerLongBreak.value == 0) {
                 PomodoroPhase.LONG_BREAK
             } else {
                 PomodoroPhase.SHORT_BREAK
@@ -214,7 +302,7 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
         const val DEFAULT_WORK_MINUTES = 25
         const val DEFAULT_SHORT_BREAK_MINUTES = 5
         const val DEFAULT_LONG_BREAK_MINUTES = 15
-        const val SESSIONS_PER_LONG_BREAK = 4
+        const val DEFAULT_SESSIONS_PER_LONG_BREAK = 4
 
         // Stage 7: preset choices shown as chips per phase while idle. Kept
         // as short, sensible lists rather than a free-entry field — an
@@ -224,5 +312,8 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
         val WORK_PRESET_MINUTES = listOf(15, 20, 25, 30, 45, 60)
         val SHORT_BREAK_PRESET_MINUTES = listOf(3, 5, 10, 15)
         val LONG_BREAK_PRESET_MINUTES = listOf(10, 15, 20, 30)
+
+        // Phase 5: preset choices for "how many Work sessions before a Long Break".
+        val SESSIONS_PER_LONG_BREAK_PRESETS = listOf(2, 3, 4, 5, 6)
     }
 }

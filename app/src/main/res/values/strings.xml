@@ -4,4 +4,10 @@
     <string name="notif_channel_timer_desc">Shows progress of your current study session</string>
     <string name="notif_channel_completion">Timer Completed</string>
     <string name="notif_channel_completion_desc">One-time alert when a session or Pomodoro work phase finishes</string>
+    <string name="notif_channel_study">Study Reminders</string>
+    <string name="notif_channel_study_desc">Alerts for planned study sessions: a heads-up beforehand and one at the start time</string>
+    <string name="notif_channel_daily">Daily Reminder</string>
+    <string name="notif_channel_daily_desc">An optional once-a-day reminder at a time you choose</string>
+    <string name="notif_channel_goal">Goal Progress</string>
+    <string name="notif_channel_goal_desc">A quiet notice when you reach your daily or weekly study goal</string>
 </resources>

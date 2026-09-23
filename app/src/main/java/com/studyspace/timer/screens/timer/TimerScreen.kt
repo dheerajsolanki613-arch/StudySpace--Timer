@@ -24,6 +24,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -41,7 +42,9 @@ import com.studyspace.timer.timer.TimerRunState
 import com.studyspace.timer.timer.formatTimerDuration
 import com.studyspace.timer.ui.components.PrimaryButton
 import com.studyspace.timer.ui.components.SecondaryButton
+import com.studyspace.timer.ui.components.SessionAttributionPicker
 import com.studyspace.timer.ui.components.TimerCard
+import com.studyspace.timer.ui.components.filteredForSubject
 import com.studyspace.timer.ui.util.centeredContentWidth
 
 private val timerModes = listOf("Self-Study", "Online Study", "Normal")
@@ -76,12 +79,41 @@ private val timerModes = listOf("Self-Study", "Online Study", "Normal")
  *    so content reflows rather than clipping.
  */
 @Composable
-fun TimerScreen(modifier: Modifier = Modifier) {
+fun TimerScreen(
+    modifier: Modifier = Modifier,
+    initialSubjectId: Long? = null,
+    initialTaskId: Long? = null,
+    initialTab: Int? = null
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
     val selfStudyViewModel: StopwatchTimerViewModel = viewModel(key = "self_study_timer")
     val onlineStudyViewModel: StopwatchTimerViewModel = viewModel(key = "online_study_timer")
     val normalViewModel: CountdownTimerViewModel = viewModel(key = "normal_timer")
+
+    // Planner Phase 6: arriving here via Screen.TimerFromPlan pre-selects
+    // the plan's subject/task on the Self-Study tab, reusing Phase 5's
+    // existing idle-only selectSubject/selectTask (a no-op if either is
+    // null, e.g. a plan with no subject/task attached). Keyed on the two
+    // ids so this only re-runs if a *different* plan's TimerScreen instance
+    // is composed, not on every recomposition.
+    LaunchedEffect(initialSubjectId, initialTaskId) {
+        if (initialSubjectId != null || initialTaskId != null) {
+            selectedTab = 0
+            selfStudyViewModel.selectSubject(initialSubjectId)
+            selfStudyViewModel.selectTask(initialTaskId)
+        }
+    }
+
+    // Phase 10 (Daily Dashboard): arriving here via Screen.QuickStartTimer
+    // ("Start Custom Timer" jumps straight to the Normal/countdown tab,
+    // index 2) lands on a specific tab without touching subject/task
+    // selection — a separate effect from the one above since the two
+    // triggers are independent (a quick-start tap never carries a
+    // subject/task, a planner start never carries an explicit tab).
+    LaunchedEffect(initialTab) {
+        initialTab?.let { selectedTab = it }
+    }
 
     val timerContent: @Composable () -> Unit = {
         when (selectedTab) {
@@ -181,8 +213,26 @@ private fun StopwatchTimerContent(
     viewModel: StopwatchTimerViewModel
 ) {
     val state by viewModel.state.collectAsState()
+    val subjects by viewModel.subjects.collectAsState()
+    val tasks by viewModel.tasks.collectAsState()
+    val selectedSubjectId by viewModel.selectedSubjectId.collectAsState()
+    val selectedTaskId by viewModel.selectedTaskId.collectAsState()
+    val customLabel by viewModel.customLabel.collectAsState()
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (state.isIdle) {
+            SessionAttributionPicker(
+                subjects = subjects,
+                tasks = tasks.filteredForSubject(selectedSubjectId),
+                selectedSubjectId = selectedSubjectId,
+                selectedTaskId = selectedTaskId,
+                customLabel = customLabel,
+                onSubjectSelected = viewModel::selectSubject,
+                onTaskSelected = viewModel::selectTask,
+                onLabelChange = viewModel::setCustomLabel
+            )
+        }
+
         TimerCard(
             label = label,
             timeText = formatTimerDuration(state.elapsedMillis),
@@ -226,6 +276,11 @@ private fun StopwatchTimerContent(
 private fun CountdownTimerContent(viewModel: CountdownTimerViewModel) {
     val state by viewModel.state.collectAsState()
     val selectedDuration by viewModel.selectedDurationMillis.collectAsState()
+    val subjects by viewModel.subjects.collectAsState()
+    val tasks by viewModel.tasks.collectAsState()
+    val selectedSubjectId by viewModel.selectedSubjectId.collectAsState()
+    val selectedTaskId by viewModel.selectedTaskId.collectAsState()
+    val customLabel by viewModel.customLabel.collectAsState()
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (state.isIdle) {
@@ -244,6 +299,17 @@ private fun CountdownTimerContent(viewModel: CountdownTimerViewModel) {
                     )
                 }
             }
+
+            SessionAttributionPicker(
+                subjects = subjects,
+                tasks = tasks.filteredForSubject(selectedSubjectId),
+                selectedSubjectId = selectedSubjectId,
+                selectedTaskId = selectedTaskId,
+                customLabel = customLabel,
+                onSubjectSelected = viewModel::selectSubject,
+                onTaskSelected = viewModel::selectTask,
+                onLabelChange = viewModel::setCustomLabel
+            )
         }
 
         TimerCard(

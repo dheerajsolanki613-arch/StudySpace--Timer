@@ -1,12 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Stage 4 (background timer): only the three permissions the foreground
-         service + notification actually need. No Accessibility Services, no
-         cross-app automation, no boot receiver, no other background triggers. -->
+    <!-- Stage 4 (background timer): the three permissions the foreground
+         service + notification need. No Accessibility Services, no
+         cross-app automation. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Phase 12 (reminders): the OS clears every alarm on reboot, so without
+         this a reminder set for tomorrow would silently vanish if the phone
+         restarted overnight. BootReceiver only re-aims the reminder alarm; it
+         starts no service and posts nothing. This is a normal (install-time)
+         permission with no runtime prompt. Reminders use inexact alarms, so
+         neither SCHEDULE_EXACT_ALARM nor USE_EXACT_ALARM is requested. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Phase 15 (themes & customization): the in-app "Vibration" toggle
+         needs this to trigger a short vibration itself on timer completion.
+         This is independent of the completion notification's own channel
+         sound/vibration (Android controls that separately, per-channel, and
+         apps can't override it after the channel is created), and is
+         separate from POST_NOTIFICATIONS above. A normal (install-time)
+         permission with no runtime prompt. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".StudySpaceApplication"
@@ -41,6 +58,23 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keeps the user's running study/Pomodoro/focus timer visible and controllable while the app is backgrounded." />
         </service>
+
+        <!-- Phase 12: delivers the single pending reminder alarm. Not exported —
+             only this app's own PendingIntent targets it. -->
+        <receiver
+            android:name=".reminders.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Phase 12: re-aims the reminder alarm after a reboot or an app
+             update. System broadcasts reach a non-exported receiver. -->
+        <receiver
+            android:name=".reminders.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

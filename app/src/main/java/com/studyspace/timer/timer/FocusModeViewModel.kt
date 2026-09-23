@@ -5,11 +5,17 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.studyspace.timer.StudySpaceApplication
 import com.studyspace.timer.data.SessionType
+import com.studyspace.timer.data.db.SubjectEntity
+import com.studyspace.timer.data.db.TaskEntity
+import com.studyspace.timer.service.CompletionFeedback
 import com.studyspace.timer.service.TimerNotifications
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -61,6 +67,12 @@ data class FocusDurationInput(val minutes: Int, val seconds: Int)
  * crash or a killed process can leave a session's *time* unrecovered (same
  * as any other mode today) but can never leave the user's *navigation*
  * permanently stuck.
+ *
+ * Phase 5 (timer integration): same optional subject/task/custom-label
+ * attribution as [StopwatchTimerViewModel]/[CountdownTimerViewModel], guarded
+ * to [FocusStage.SETUP] rather than "idle" (this class has no bare "idle"
+ * concept — [FocusStage] already distinguishes setup from active/completed)
+ * — same task-selects-its-subject reasoning as the other two classes.
  */
 class FocusModeViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as StudySpaceApplication
@@ -79,9 +91,28 @@ class FocusModeViewModel(application: Application) : AndroidViewModel(applicatio
     private val _validationError = MutableStateFlow<String?>(null)
     val validationError: StateFlow<String?> = _validationError.asStateFlow()
 
+    val subjects: StateFlow<List<SubjectEntity>> = app.subjectRepository.allSubjects()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val tasks: StateFlow<List<TaskEntity>> = app.taskRepository.allTasks()
+        .map { list -> list.filterNot { it.completed } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _selectedSubjectId = MutableStateFlow<Long?>(null)
+    val selectedSubjectId: StateFlow<Long?> = _selectedSubjectId.asStateFlow()
+
+    private val _selectedTaskId = MutableStateFlow<Long?>(null)
+    val selectedTaskId: StateFlow<Long?> = _selectedTaskId.asStateFlow()
+
+    private val _customLabel = MutableStateFlow("")
+    val customLabel: StateFlow<String> = _customLabel.asStateFlow()
+
     private var activeSessionId: String? = null
     private var lockId: String? = null
     private var sessionStartEpochMillis: Long = 0L
+    private var currentSubjectId: Long? = null
+    private var currentTaskId: Long? = null
+    private var currentLabel: String = "Focus Mode"
 
     /** Applies a preset chip. Only takes effect in [FocusStage.SETUP],
      *  mirroring [CountdownTimerViewModel.selectDuration]'s idle-only
@@ -99,6 +130,27 @@ class FocusModeViewModel(application: Application) : AndroidViewModel(applicatio
         if (_stage.value != FocusStage.SETUP) return
         _durationInput.value = FocusDurationInput(minutes = minutes, seconds = seconds)
         _validationError.value = null
+    }
+
+    fun selectSubject(subjectId: Long?) {
+        if (_stage.value != FocusStage.SETUP) return
+        _selectedSubjectId.value = subjectId
+        val selectedTask = tasks.value.find { it.id == _selectedTaskId.value }
+        if (selectedTask != null && selectedTask.subjectId != subjectId) {
+            _selectedTaskId.value = null
+        }
+    }
+
+    fun selectTask(taskId: Long?) {
+        if (_stage.value != FocusStage.SETUP) return
+        _selectedTaskId.value = taskId
+        if (taskId != null) {
+            tasks.value.find { it.id == taskId }?.subjectId?.let { _selectedSubjectId.value = it }
+        }
+    }
+
+    fun setCustomLabel(text: String) {
+        if (_stage.value == FocusStage.SETUP) _customLabel.value = text
     }
 
     /**
@@ -122,11 +174,14 @@ class FocusModeViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun beginLockedSession(targetMillis: Long) {
+        currentLabel = _customLabel.value.ifBlank { "Focus Mode" }
+        currentSubjectId = _selectedSubjectId.value
+        currentTaskId = _selectedTaskId.value
         sessionStartEpochMillis = System.currentTimeMillis()
         engine.start(targetMillis = targetMillis)
         _stage.value = FocusStage.ACTIVE
         activeSessionId = ActiveTimerSession.publish(
-            label = "Focus Mode",
+            label = currentLabel,
             state = state,
             onPause = ::pause,
             onResume = ::resume,
@@ -159,6 +214,7 @@ class FocusModeViewModel(application: Application) : AndroidViewModel(applicatio
         clearActiveSession()
         clearLock()
         _stage.value = FocusStage.SETUP
+        clearAttribution()
     }
 
     private fun onTimerCompleted() {
@@ -174,30 +230,48 @@ class FocusModeViewModel(application: Application) : AndroidViewModel(applicatio
     fun acknowledgeCompletion() {
         engine.reset()
         _stage.value = FocusStage.SETUP
+        clearAttribution()
     }
 
     /** Stage 8-style completion alert, same pattern as every other timer
      *  mode's `maybeNotifyCompletion` — gated by the same "Timer
-     *  completion alerts" Settings toggle. */
+     *  completion alerts" Settings toggle. Phase 15: also plays the
+     *  independent sound/vibration cue — see [CompletionFeedback]. */
     private fun maybeNotifyCompletion() {
         viewModelScope.launch {
             if (settingsRepository.timerCompletionAlertsEnabled.first()) {
                 TimerNotifications.notifyCompletion(getApplication(), "Focus Mode")
             }
+            CompletionFeedback.play(
+                context = getApplication(),
+                soundEnabled = settingsRepository.soundEnabled.first(),
+                vibrationEnabled = settingsRepository.vibrationEnabled.first()
+            )
         }
     }
 
     private fun saveSession(durationMillis: Long, completedNaturally: Boolean) {
         val startedAt = sessionStartEpochMillis
+        val label = currentLabel
+        val subjectId = currentSubjectId
+        val taskId = currentTaskId
         viewModelScope.launch {
             repository.recordSession(
                 type = SessionType.FOCUS_MODE,
-                label = "Focus Mode",
+                label = label,
                 startEpochMillis = startedAt,
                 durationMillis = durationMillis,
-                completedNaturally = completedNaturally
+                completedNaturally = completedNaturally,
+                subjectId = subjectId,
+                taskId = taskId
             )
         }
+    }
+
+    private fun clearAttribution() {
+        _selectedSubjectId.value = null
+        _selectedTaskId.value = null
+        _customLabel.value = ""
     }
 
     private fun clearActiveSession() {

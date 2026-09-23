@@ -44,6 +44,13 @@ class ThemesViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = AppPalettes.galaxy.id
     )
 
+    /** Phase 15 — `null` means "use the palette's own accent" (see [PaletteRepository.customAccentArgb]). */
+    val accentArgb: StateFlow<Int?> = paletteRepository.customAccentArgb.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
     private val _importError = MutableStateFlow<String?>(null)
     val importError: StateFlow<String?> = _importError
 
@@ -77,5 +84,13 @@ class ThemesViewModel(application: Application) : AndroidViewModel(application) 
 
     fun selectPalette(id: String) {
         viewModelScope.launch { paletteRepository.setPalette(id) }
+    }
+
+    fun setAccent(argb: Int) {
+        viewModelScope.launch { paletteRepository.setCustomAccent(argb) }
+    }
+
+    fun clearAccent() {
+        viewModelScope.launch { paletteRepository.clearCustomAccent() }
     }
 }

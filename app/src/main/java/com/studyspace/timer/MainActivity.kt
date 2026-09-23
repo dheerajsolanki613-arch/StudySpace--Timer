@@ -92,6 +92,7 @@ fun StudySpaceTimerApp() {
     // every screen's MaterialTheme, not just the Themes screen itself.
     val themesViewModel: ThemesViewModel = viewModel()
     val paletteId by themesViewModel.paletteId.collectAsState()
+    val accentArgb by themesViewModel.accentArgb.collectAsState()
 
     // Stage 8: same Activity-scoped SettingsViewModel instance the Settings
     // screen reads from and writes to.
@@ -130,7 +131,7 @@ fun StudySpaceTimerApp() {
     }
 
     CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
-        StudySpaceTimerTheme(paletteId = paletteId) {
+        StudySpaceTimerTheme(paletteId = paletteId, accentArgb = accentArgb) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 StudySpaceNavHost()
             }

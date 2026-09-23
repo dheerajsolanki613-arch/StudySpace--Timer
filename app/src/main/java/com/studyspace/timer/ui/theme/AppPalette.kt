@@ -197,11 +197,137 @@ object AppPalettes {
         )
     )
 
+    // Phase 15 — see the comment above the color constants in Color.kt for why
+    // these four exist: calmer, lower-saturation alternatives to the neon
+    // Galaxy family, for people who want the same app with less visual noise.
+
+    val deepSpace = AppPalette(
+        id = "deep_space",
+        label = "Deep Space",
+        previewColors = listOf(DeepSpaceBackground, DeepSpaceSurface, DeepSpaceBlue),
+        colorScheme = darkColorScheme(
+            primary = DeepSpaceBlue,
+            secondary = DeepSpaceCyan,
+            tertiary = DeepSpaceSlate,
+            background = DeepSpaceBackground,
+            surface = DeepSpaceSurface,
+            surfaceVariant = DeepSpaceSurface,
+            outline = DeepSpaceOutline,
+            onBackground = DeepSpaceText,
+            onSurface = DeepSpaceText,
+            onSurfaceVariant = DeepSpaceText,
+            onPrimary = DeepSpaceBackground,
+            onSecondary = DeepSpaceBackground,
+            onTertiary = DeepSpaceBackground,
+            primaryContainer = DeepSpaceBlue,
+            onPrimaryContainer = DeepSpaceBackground,
+        )
+    )
+
+    val midnight = AppPalette(
+        id = "midnight",
+        label = "Midnight",
+        previewColors = listOf(MidnightBackground, MidnightSurface, MidnightIndigo),
+        colorScheme = darkColorScheme(
+            primary = MidnightIndigo,
+            secondary = MidnightGray,
+            tertiary = MidnightSlate,
+            background = MidnightBackground,
+            surface = MidnightSurface,
+            surfaceVariant = MidnightSurface,
+            outline = MidnightOutline,
+            onBackground = MidnightText,
+            onSurface = MidnightText,
+            onSurfaceVariant = MidnightText,
+            onPrimary = MidnightBackground,
+            onSecondary = MidnightBackground,
+            onTertiary = MidnightText,
+            primaryContainer = MidnightIndigo,
+            onPrimaryContainer = MidnightBackground,
+        )
+    )
+
+    val minimalDark = AppPalette(
+        id = "minimal_dark",
+        label = "Minimal Dark",
+        previewColors = listOf(MinimalDarkBackground, MinimalDarkSurface, MinimalDarkBlue),
+        colorScheme = darkColorScheme(
+            primary = MinimalDarkBlue,
+            secondary = MinimalDarkGray,
+            tertiary = MinimalDarkPaleGray,
+            background = MinimalDarkBackground,
+            surface = MinimalDarkSurface,
+            surfaceVariant = MinimalDarkSurface,
+            outline = MinimalDarkOutline,
+            onBackground = MinimalDarkText,
+            onSurface = MinimalDarkText,
+            onSurfaceVariant = MinimalDarkText,
+            onPrimary = MinimalDarkBackground,
+            onSecondary = MinimalDarkBackground,
+            onTertiary = MinimalDarkBackground,
+            primaryContainer = MinimalDarkBlue,
+            onPrimaryContainer = MinimalDarkBackground,
+        )
+    )
+
+    val minimalLight = AppPalette(
+        id = "minimal_light",
+        label = "Light",
+        previewColors = listOf(MinimalLightBackground, MinimalLightSurface, MinimalLightBlue),
+        isDark = false,
+        colorScheme = lightColorScheme(
+            primary = MinimalLightBlue,
+            secondary = MinimalLightGray,
+            tertiary = MinimalLightPaleBlue,
+            background = MinimalLightBackground,
+            surface = MinimalLightSurface,
+            surfaceVariant = MinimalLightSurface,
+            outline = MinimalLightOutline,
+            onBackground = MinimalLightText,
+            onSurface = MinimalLightText,
+            onSurfaceVariant = MinimalLightText,
+            onPrimary = Color.White,
+            onSecondary = Color.White,
+            onTertiary = MinimalLightText,
+            primaryContainer = MinimalLightBlue,
+            onPrimaryContainer = Color.White,
+        )
+    )
+
     val all: List<AppPalette> = listOf(
-        galaxy, nebulaBlue, twilightLavender, solarFlare, emeraldNova, crimsonNebula, kawaiiPastel
+        galaxy, nebulaBlue, twilightLavender, solarFlare, emeraldNova, crimsonNebula, kawaiiPastel,
+        deepSpace, midnight, minimalDark, minimalLight
     )
 
     fun byId(id: String?): AppPalette = all.find { it.id == id } ?: galaxy
+}
+
+/**
+ * Phase 15 — Accent customization. When [accentArgb] is set, returns a copy
+ * of [AppPalette.colorScheme] with just the accent-carrying roles (primary,
+ * primaryContainer, secondary) swapped for the custom color; background,
+ * surface, text and outline are left exactly as the base palette defined
+ * them, so a custom accent personalizes the app without ever touching the
+ * colors "Do not sacrifice readability for visual effects" is really about.
+ * `onPrimary`/`onSecondary`/`onPrimaryContainer` are recomputed via
+ * [contrastSafeContentColor] rather than guessed, since — unlike a
+ * hand-picked palette color — a user-chosen hue can't be pre-verified for
+ * contrast; this applies the same safety net
+ * [com.studyspace.timer.ui.components.PrimaryButton] already relies on, at
+ * the source instead of only at the button.
+ */
+fun AppPalette.effectiveColorScheme(accentArgb: Int?): ColorScheme {
+    if (accentArgb == null) return colorScheme
+    val accent = Color(accentArgb)
+    val onAccent = contrastSafeContentColor(background = accent, preferred = colorScheme.onPrimary)
+    return colorScheme.copy(
+        primary = accent,
+        primaryContainer = accent,
+        secondary = accent,
+        onPrimary = onAccent,
+        onSecondary = onAccent,
+        onPrimaryContainer = onAccent
+    )
 }
 
 /** Flattens a translucent color onto [GalaxyDeepSpace] so it's opaque enough to use as a surface color. */

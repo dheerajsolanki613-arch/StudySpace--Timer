@@ -2,6 +2,7 @@ package com.studyspace.timer.theme
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.studyspace.timer.ui.theme.AppPalettes
@@ -21,6 +22,7 @@ class PaletteRepository(private val context: Context) {
 
     private object Keys {
         val PALETTE_ID = stringPreferencesKey("palette_id")
+        val CUSTOM_ACCENT_ARGB = intPreferencesKey("custom_accent_argb")
     }
 
     val selectedPaletteId: Flow<String> = context.themeDataStore.data.map { prefs ->
@@ -29,5 +31,22 @@ class PaletteRepository(private val context: Context) {
 
     suspend fun setPalette(id: String) {
         context.themeDataStore.edit { prefs -> prefs[Keys.PALETTE_ID] = id }
+    }
+
+    /**
+     * Phase 15 — Accent customization. `null` means "use the selected
+     * palette's own accent" (the default); set means override it — see
+     * [com.studyspace.timer.ui.theme.effectiveColorScheme].
+     */
+    val customAccentArgb: Flow<Int?> = context.themeDataStore.data.map { prefs ->
+        prefs[Keys.CUSTOM_ACCENT_ARGB]
+    }
+
+    suspend fun setCustomAccent(argb: Int) {
+        context.themeDataStore.edit { prefs -> prefs[Keys.CUSTOM_ACCENT_ARGB] = argb }
+    }
+
+    suspend fun clearCustomAccent() {
+        context.themeDataStore.edit { prefs -> prefs.remove(Keys.CUSTOM_ACCENT_ARGB) }
     }
 }
