@@ -60,7 +60,19 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index("subjectId"), Index("taskId")]
+    // Phase 19 (Performance): dateEpochDay and startEpochMillis added here — every
+    // other table's queries are either small/bounded (subjects, tasks, goals) or
+    // already indexed on what they filter by (planned_sessions.dateEpochDay, from
+    // migration 4→5). study_sessions is the one table that grows unboundedly (every
+    // completed session, forever), and dateEpochDay/startEpochMillis are exactly what
+    // StudySessionDao's hottest queries filter or sort by: sessionsSince (called by
+    // Analytics, the Home dashboard, Goals, streaks, and Phase 17's smart planner) and
+    // distinctSessionDaysDesc filter/sort on dateEpochDay; recentSessions (the Home
+    // dashboard's "Recent Activity", read on every app open) is ORDER BY
+    // startEpochMillis DESC LIMIT :limit, which a B-tree index lets SQLite satisfy by
+    // walking the index backwards and stopping at :limit rows, instead of scanning and
+    // sorting the whole table first. See AppDatabase.MIGRATION_6_7.
+    indices = [Index("subjectId"), Index("taskId"), Index("dateEpochDay"), Index("startEpochMillis")]
 )
 data class StudySessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,

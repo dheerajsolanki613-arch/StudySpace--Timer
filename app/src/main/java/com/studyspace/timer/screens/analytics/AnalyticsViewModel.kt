@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
@@ -77,9 +78,28 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
     val subjects: StateFlow<List<SubjectEntity>> = app.subjectRepository.allSubjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val filteredSessions = combine(repository.allSessions(), _selectedRange) { sessions, range ->
-        sessionsInRange(sessions, range, LocalDate.now())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /**
+     * Phase 19 (Performance): re-subscribes (via `flatMapLatest`, same
+     * pattern `DailySummaryViewModel` already uses) to a *range-scoped*
+     * query whenever [_selectedRange] changes, instead of always loading
+     * every session ever recorded and filtering in Kotlin. `study_sessions`
+     * is the one table in this app that grows unboundedly — for someone
+     * with years of history, "Today"/"7 days"/"30 days"/"90 days" have no
+     * reason to pull the whole table into memory just to discard most of
+     * it. [sessionsInRange] still runs afterward as a cheap, exact
+     * safety-net filter (and is still what "All time" relies on entirely),
+     * so the *output* is identical either way — only how much gets loaded
+     * from Room changes.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val filteredSessions = _selectedRange
+        .flatMapLatest { range ->
+            val sessionsFlow = range.days?.let { days ->
+                repository.sessionsSince(LocalDate.now().minusDays((days - 1).toLong()).toEpochDay())
+            } ?: repository.allSessions()
+            sessionsFlow.map { sessions -> sessionsInRange(sessions, range, LocalDate.now()) }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val advancedStats: StateFlow<AdvancedStats> = combine(filteredSessions, _selectedRange) { sessions, range ->
         computeAdvancedStats(sessions, range, LocalDate.now())

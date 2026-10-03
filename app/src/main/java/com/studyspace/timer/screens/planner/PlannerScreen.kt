@@ -25,6 +25,7 @@ import com.studyspace.timer.data.PlannedSessionStatus
 import com.studyspace.timer.data.db.PlannedSessionEntity
 import com.studyspace.timer.data.repository.formatPlannedTimeRange
 import com.studyspace.timer.ui.components.GlassCard
+import com.studyspace.timer.ui.components.SecondaryButton
 import com.studyspace.timer.ui.components.SectionHeader
 import com.studyspace.timer.ui.components.StatMiniCard
 import java.time.LocalDate
@@ -43,6 +44,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun PlannerScreen(
     onStartPlan: (subjectId: Long?, taskId: Long?) -> Unit,
+    onOpenSmartPlan: () -> Unit = {},
     viewModel: PlannerViewModel = viewModel()
 ) {
     val today by viewModel.today.collectAsState()
@@ -62,6 +64,13 @@ fun PlannerScreen(
     ) {
         item {
             SectionHeader(title = "Planner", actionLabel = "Add", onActionClick = { showAddDialog = true })
+        }
+        item {
+            // Phase 17 (Smart Study Planning) — deliberately a secondary, clearly
+            // optional action below the main "Add" button: this is a suggestion
+            // tool, not the primary way to plan. See SmartPlanScreen's own doc for
+            // why it never writes anything on its own.
+            SecondaryButton(text = "Suggest a schedule", onClick = onOpenSmartPlan)
         }
         item { TodayCountsRow(today) }
         if (today.isEmpty()) {
@@ -147,7 +156,8 @@ fun PlannerScreen(
     }
 }
 
-private fun formatPlanDate(dateEpochDay: Long): String {
+/** "Tomorrow", or "Mon, Oct 5" otherwise. `internal`, not `private`: Phase 17's `SmartPlanScreen` reuses this exact formatting for its suggestion preview rather than duplicating it. */
+internal fun formatPlanDate(dateEpochDay: Long): String {
     val date = LocalDate.ofEpochDay(dateEpochDay)
     val today = LocalDate.now()
     return when (dateEpochDay - today.toEpochDay()) {

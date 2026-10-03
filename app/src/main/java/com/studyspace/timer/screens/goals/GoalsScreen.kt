@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.AlertDialog
@@ -157,7 +158,9 @@ private fun WeeklyGoalPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text("Weekly study goal") },
         text = {
-            Column {
+            // Phase 22: AlertDialog does not scroll its content; without this the
+            // editor clips in landscape / at large font scales.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = "Hours per week",
                     style = MaterialTheme.typography.bodyMedium,

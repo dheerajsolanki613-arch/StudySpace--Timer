@@ -48,8 +48,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StudySessionEntity::class, StudyGoalEntity::class, SubjectEntity::class,
         TaskEntity::class, PlannedSessionEntity::class
     ],
-    version = 6,
-    exportSchema = false
+    version = 7,
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -262,6 +262,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Phase 19 (Performance): index-only, no data changes. See the comment
+         * above `StudySessionEntity`'s `indices` for why these two columns —
+         * every row in `study_sessions` is kept exactly as it was.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_study_sessions_dateEpochDay` ON `study_sessions` (`dateEpochDay`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_study_sessions_startEpochMillis` ON `study_sessions` (`startEpochMillis`)"
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -269,7 +285,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "studyspace_timer.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .build().also { instance = it }
             }
     }

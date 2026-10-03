@@ -28,6 +28,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -492,6 +494,13 @@ private fun ProductivityPatternRow(label: String, value: String) {
  * dependency-light throughout. Bar heights are relative to the tallest day
  * in [dailyTotals]; an all-zero week draws flat minimum-height bars rather
  * than invisible ones, so the chart doesn't look broken on a fresh install.
+ *
+ * A [Canvas] is otherwise invisible to TalkBack, and a 0-minute day is only
+ * *visually* distinguished from a small nonzero day by color (both get the
+ * same minimum-height bar). Phase 16 (Accessibility): [contentDescription]
+ * states every day's total as text on the whole chart as one merged node,
+ * so the same information the bar heights and colors convey is available
+ * regardless of vision or color perception, and to a screen reader.
  */
 @Composable
 private fun WeeklyBarChart(dailyTotals: List<DayTotal>, modifier: Modifier = Modifier) {
@@ -500,8 +509,14 @@ private fun WeeklyBarChart(dailyTotals: List<DayTotal>, modifier: Modifier = Mod
     val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     val trackStrokeColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
     val labelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val chartDescription = remember(dailyTotals) {
+        "Study time by day, this week: " + dailyTotals.joinToString(", ") { day ->
+            "${day.date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} " +
+                formatDurationHoursMinutes(day.totalMillis)
+        }
+    }
 
-    Column(modifier = modifier) {
+    Column(modifier = modifier.semantics(mergeDescendants = true) { contentDescription = chartDescription }) {
         Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
             if (dailyTotals.isEmpty()) return@Canvas
 

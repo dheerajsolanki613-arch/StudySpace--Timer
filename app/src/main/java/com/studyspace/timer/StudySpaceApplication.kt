@@ -8,6 +8,11 @@ import com.studyspace.timer.data.repository.SessionRepository
 import com.studyspace.timer.data.repository.SubjectRepository
 import com.studyspace.timer.data.repository.TaskRepository
 import com.studyspace.timer.data.transfer.DataTransferRepository
+import com.studyspace.timer.ai.OfflineStudyAssistant
+import com.studyspace.timer.ai.StudyAssistant
+import com.studyspace.timer.planning.AvailabilityRepository
+import com.studyspace.timer.planning.LocalPlanGenerator
+import com.studyspace.timer.planning.PlanGenerator
 import com.studyspace.timer.reminders.GoalNotifier
 import com.studyspace.timer.reminders.ReminderNotifications
 import com.studyspace.timer.reminders.ReminderScheduler
@@ -69,6 +74,17 @@ class StudySpaceApplication : Application() {
     val paletteRepository: PaletteRepository by lazy { PaletteRepository(this) }
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(this) }
     val dataTransferRepository: DataTransferRepository by lazy { DataTransferRepository(database) }
+    val availabilityRepository: AvailabilityRepository by lazy { AvailabilityRepository(this) }
+
+    /** Phase 18: what proposes plans for `SmartPlanScreen`. Swap this one line to change the source; the preview/decline/confirm flow is unchanged. */
+    val planGenerator: PlanGenerator = LocalPlanGenerator
+
+    /**
+     * Phase 18: the optional assistant. [OfflineStudyAssistant] offers no
+     * capabilities, so no assistant-backed UI is shown anywhere — see
+     * `ai/StudyAssistant.kt` for the rules a real provider must follow.
+     */
+    val studyAssistant: StudyAssistant = OfflineStudyAssistant
 
     override fun onCreate() {
         super.onCreate()

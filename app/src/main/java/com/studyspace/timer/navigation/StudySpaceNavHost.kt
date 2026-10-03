@@ -26,6 +26,7 @@ import com.studyspace.timer.screens.goals.GoalsScreen
 import com.studyspace.timer.screens.achievements.AchievementsScreen
 import com.studyspace.timer.screens.home.HomeScreen
 import com.studyspace.timer.screens.planner.PlannerScreen
+import com.studyspace.timer.screens.planner.SmartPlanScreen
 import com.studyspace.timer.screens.pomodoro.PomodoroScreen
 import com.studyspace.timer.screens.settings.SettingsScreen
 import com.studyspace.timer.screens.subjects.SubjectDetailScreen
@@ -146,8 +147,12 @@ fun StudySpaceNavHost(navController: NavHostController = rememberNavController()
                     PlannerScreen(
                         onStartPlan = { subjectId, taskId ->
                             navController.navigate(Screen.TimerFromPlan.createRoute(subjectId, taskId))
-                        }
+                        },
+                        onOpenSmartPlan = { navController.navigate(Screen.SmartPlan.route) }
                     )
+                }
+                composable(Screen.SmartPlan.route) {
+                    SmartPlanScreen(onDone = { navController.popBackStack() })
                 }
                 composable(Screen.Achievements.route) { AchievementsScreen() }
                 composable(Screen.DailySummary.route) { DailySummaryScreen() }

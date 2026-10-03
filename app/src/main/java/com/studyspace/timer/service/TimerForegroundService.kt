@@ -9,8 +9,10 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.studyspace.timer.timer.ActiveTimerSession
 import com.studyspace.timer.timer.TimerRunState
+import com.studyspace.timer.timer.TimerUiState
 import com.studyspace.timer.timer.formatTimerDuration
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -71,36 +73,52 @@ class TimerForegroundService : LifecycleService() {
                     if (info == null) {
                         flowOf(null)
                     } else {
-                        info.state.map { timerState -> info to timerState }
+                        info.state.map { timerState -> notificationContent(info.label, timerState) }
                     }
                 }
-                .collectLatest { pair ->
-                    if (pair == null) {
+                // Phase 19 (Performance): the tick loop (TimerEngine) updates every
+                // 200ms so the in-app UI feels smooth, but the notification only ever
+                // displays whole seconds (MM:SS) — most of those ticks produce the
+                // exact same text. Re-posting a system notification is a real IPC
+                // call, not a cheap in-process state update, so doing it 5x/second for
+                // the entire length of every session was pure waste. distinctUntilChanged
+                // means a repost only happens when something actually displayed changes
+                // (in practice, about once a second instead of five times), with zero
+                // change to what's ever shown.
+                .distinctUntilChanged()
+                .collectLatest { content ->
+                    if (content == null) {
                         ServiceCompat.stopForeground(this@TimerForegroundService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                         stopSelf()
                         return@collectLatest
                     }
-                    val (info, timerState) = pair
-                    val timeText = formatTimerDuration(
-                        if (timerState.targetMillis > 0L) timerState.remainingMillis else timerState.elapsedMillis
-                    )
-                    val statusText = when (timerState.runState) {
-                        TimerRunState.RUNNING -> "In progress"
-                        TimerRunState.PAUSED -> "Paused"
-                        TimerRunState.COMPLETED -> "Completed"
-                        TimerRunState.IDLE -> "Ready"
-                    }
                     startForegroundCompat(
                         TimerNotifications.build(
                             context = this@TimerForegroundService,
-                            label = info.label,
-                            timeText = timeText,
-                            statusText = statusText,
-                            isPaused = timerState.isPaused
+                            label = content.label,
+                            timeText = content.timeText,
+                            statusText = content.statusText,
+                            isPaused = content.isPaused
                         )
                     )
                 }
         }
+    }
+
+    /** Exactly what the notification displays — see the `distinctUntilChanged()` comment above for why this exists as its own equatable value. */
+    private data class NotificationContent(val label: String, val timeText: String, val statusText: String, val isPaused: Boolean)
+
+    private fun notificationContent(label: String, timerState: TimerUiState): NotificationContent {
+        val timeText = formatTimerDuration(
+            if (timerState.targetMillis > 0L) timerState.remainingMillis else timerState.elapsedMillis
+        )
+        val statusText = when (timerState.runState) {
+            TimerRunState.RUNNING -> "In progress"
+            TimerRunState.PAUSED -> "Paused"
+            TimerRunState.COMPLETED -> "Completed"
+            TimerRunState.IDLE -> "Ready"
+        }
+        return NotificationContent(label, timeText, statusText, timerState.isPaused)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

@@ -4,6 +4,11 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+ksp {
+    // Phase 20: export Room schema JSON so migrations can be verified later.
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.studyspace.timer"
     compileSdk = 34
@@ -14,6 +19,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         vectorDrawables {
             useSupportLibrary = true

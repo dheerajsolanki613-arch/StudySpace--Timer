@@ -5,15 +5,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
@@ -35,8 +35,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.studyspace.timer.data.SessionType
 import com.studyspace.timer.data.db.StudySessionEntity
 import com.studyspace.timer.timer.formatDurationHoursMinutes
 import com.studyspace.timer.timer.formatRelativeTime
@@ -494,29 +497,33 @@ private fun QuickActionsGrid(
     columns: Int,
     onClick: (String) -> Unit
 ) {
-    // Height computed from the actual row count (rather than a fixed
-    // constant) so an added/removed tile never clips or leaves dead space —
-    // the fixed 300.dp this used to be was sized for 4 tiles/2 rows and
-    // silently clipped the 5th (now 6th) tile's row. userScrollEnabled is
-    // off since the grid is sized to fit its content exactly; the outer
-    // LazyColumn (this grid's caller) handles scrolling the whole screen.
-    val rows = (quickActions.size + columns - 1) / columns
-    val gridHeight = (132 * rows + 12 * (rows - 1).coerceAtLeast(0)).dp
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(columns),
-        modifier = Modifier.height(gridHeight),
-        userScrollEnabled = false,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(quickActions) { action ->
-            com.studyspace.timer.ui.components.FeatureCard(
-                title = action.title,
-                subtitle = action.subtitle,
-                icon = action.icon,
-                accentColor = action.accent,
-                onClick = { onClick(action.title) }
-            )
+    // Phase 22: was a LazyVerticalGrid with a height computed from a fixed 132.dp per
+    // row. FeatureCard now grows at large font scales (heightIn(min = 132.dp)), which
+    // that fixed container height would have clipped. Plain Rows sized by their
+    // content (IntrinsicSize.Max keeps tiles in a row equal height) can't clip, and
+    // the outer LazyColumn still scrolls the whole screen.
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        quickActions.chunked(columns.coerceAtLeast(1)).forEach { rowActions ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rowActions.forEach { action ->
+                    com.studyspace.timer.ui.components.FeatureCard(
+                        title = action.title,
+                        subtitle = action.subtitle,
+                        icon = action.icon,
+                        accentColor = action.accent,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        onClick = { onClick(action.title) }
+                    )
+                }
+                repeat(columns - rowActions.size) { Spacer(modifier = Modifier.weight(1f)) }
+            }
         }
     }
 }
@@ -555,6 +562,20 @@ private fun NoSessionsText() {
 
 @Composable
 private fun RecentSessionRow(session: StudySessionEntity, modifier: Modifier = Modifier) {
+    // Phase 16 (Accessibility): completedNaturally is otherwise only shown as a
+    // subtle color/alpha shift on the duration text — invisible to a screen
+    // reader and easy to miss for anyone who can't distinguish the two colors.
+    // Only meaningful for NORMAL_TIMER/POMODORO (they have a target to reach);
+    // Self-Study/Online Study/Focus Mode are open-ended, so completedNaturally
+    // is always false for them and "ended early" would be a wrong description.
+    val hasTarget = session.type == SessionType.NORMAL_TIMER.name || session.type == SessionType.POMODORO.name
+    val durationText = formatDurationHoursMinutes(session.durationMillis)
+    val durationDescription = if (hasTarget) {
+        durationText + if (session.completedNaturally) ", completed" else ", ended early"
+    } else {
+        durationText
+    }
+
     GlassCard(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -574,13 +595,14 @@ private fun RecentSessionRow(session: StudySessionEntity, modifier: Modifier = M
                 )
             }
             Text(
-                text = formatDurationHoursMinutes(session.durationMillis),
+                text = durationText,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (session.completedNaturally) {
                     MaterialTheme.colorScheme.secondary
                 } else {
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                }
+                },
+                modifier = Modifier.semantics { contentDescription = durationDescription }
             )
         }
     }

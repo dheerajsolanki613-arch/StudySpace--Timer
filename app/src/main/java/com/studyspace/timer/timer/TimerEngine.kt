@@ -76,6 +76,9 @@ data class TimerUiState(
 class TimerEngine(
     private val scope: CoroutineScope,
     private val tickIntervalMillis: Long = 200L,
+    // Phase 21: injectable monotonic clock so the engine is unit-testable on the JVM
+    // (android.os.SystemClock is unavailable there). Default is the real clock.
+    private val clock: () -> Long = { SystemClock.elapsedRealtime() },
     private val onCompleted: () -> Unit = {}
 ) {
     private val _state = MutableStateFlow(TimerUiState())
@@ -92,7 +95,7 @@ class TimerEngine(
     fun start(targetMillis: Long = 0L) {
         tickJob?.cancel()
         accumulatedMillis = 0L
-        runStartRealtime = SystemClock.elapsedRealtime()
+        runStartRealtime = clock()
         _state.value = TimerUiState(
             direction = if (targetMillis > 0L) TimerDirection.COUNT_DOWN else TimerDirection.COUNT_UP,
             runState = TimerRunState.RUNNING,
@@ -115,7 +118,7 @@ class TimerEngine(
     fun resume() {
         val current = _state.value
         if (!current.isPaused) return
-        runStartRealtime = SystemClock.elapsedRealtime()
+        runStartRealtime = clock()
         _state.value = current.copy(runState = TimerRunState.RUNNING)
         launchTicker()
     }
@@ -128,7 +131,7 @@ class TimerEngine(
     }
 
     private fun currentElapsed(): Long =
-        accumulatedMillis + (SystemClock.elapsedRealtime() - runStartRealtime)
+        accumulatedMillis + (clock() - runStartRealtime)
 
     private fun launchTicker() {
         tickJob = scope.launch {

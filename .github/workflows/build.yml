@@ -1,52 +1,48 @@
-name: Build StudySpace Timer
+# Restored in Phase 23 (checkpoint-15 zip did not contain this file).
+# If your repo already has a working build.yml, keep yours and discard this one.
+name: Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
-
-      # No gradle-wrapper.jar is committed (see README "Note on the Gradle
-      # wrapper"), so Gradle itself is provisioned directly here rather than
-      # via ./gradlew. Pinned to 8.7 to match the AGP 8.5.2 / Kotlin 1.9.24
-      # toolchain this project uses.
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.7"
-
-      - name: Run unit tests
-        run: gradle testDebugUnitTest --stacktrace
-
-      - name: Assemble debug APK
-        run: gradle assembleDebug --stacktrace
-
-      - name: Upload debug APK
+          gradle-version: '8.7'
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Lint
+        run: gradle :app:lintDebug --stacktrace
+        continue-on-error: true
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: studyspace-timer-debug-apk
+          name: studyspace-debug-apk
           path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-
-      - name: Upload unit test results
+      - name: Upload test and lint reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: studyspace-timer-unit-test-results
-          path: app/build/test-results/testDebugUnitTest/*.xml
-          if-no-files-found: ignore
+          name: reports
+          path: |
+            app/build/reports/tests
+            app/build/reports/lint-results-debug.html
+      - name: Upload Room schemas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas
+          path: app/schemas

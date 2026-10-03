@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -272,6 +273,7 @@ private fun AccentSwatch(color: Color, label: String?, selected: Boolean, showAs
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
+                .minimumInteractiveComponentSize()
                 .size(44.dp)
                 .clip(CircleShape)
                 .then(
@@ -411,8 +413,9 @@ private fun PersonalizeTile(
                 Box(
                     modifier = Modifier
                         .padding(6.dp)
-                        .size(22.dp)
                         .align(Alignment.TopStart)
+                        .minimumInteractiveComponentSize()
+                        .size(22.dp)
                         .clip(CircleShape)
                         .background(scheme.background.copy(alpha = 0.7f))
                         .clickable(onClick = onRemove),

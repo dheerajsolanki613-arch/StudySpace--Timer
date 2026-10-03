@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -49,7 +50,7 @@ fun FeatureCard(
     GlassCard(
         modifier = modifier
             .fillMaxWidth()
-            .height(132.dp)
+            .heightIn(min = 132.dp) // Phase 22: grow with large font scales instead of clipping
             .semantics(mergeDescendants = true) { contentDescription = "$title. $subtitle" }
             .clickable(onClick = onClick)
     ) {

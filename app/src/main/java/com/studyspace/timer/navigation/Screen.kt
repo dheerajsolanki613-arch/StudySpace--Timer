@@ -27,6 +27,7 @@ sealed class Screen(val route: String) {
     }
     data object Tasks : Screen("tasks")
     data object Planner : Screen("planner")
+    data object SmartPlan : Screen("smart_plan")
     data object Achievements : Screen("achievements")
     data object DailySummary : Screen("daily_summary")
     data object DataManagement : Screen("data_management")
