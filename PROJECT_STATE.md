@@ -1208,6 +1208,13 @@ this file fully before touching code.
   rows), loading/error states (only 4 loading references total).
   **Watch on CI:** HomeScreen compiles (new imports IntrinsicSize/fillMaxHeight;
   `FeatureCard` has a leftover unused `height` import — warning only).
+- **CI RUN #1 (first ever real compile, on checkpoint 19):** failed in
+  `compileDebugKotlin` with 3 errors, all the same: a bogus
+  `import androidx.compose.foundation.layout.weight` (weight is a Row/Column
+  scope member, that top-level symbol is internal) in TaskEditorDialog,
+  TasksScreen, SubjectDetailScreen. Imports removed (checkpoint 20). Only 3
+  errors were reported, but Kotlin may surface more once these clear —
+  expect further rounds. Tests/lint/assemble not reached yet.
 - 🔶 Phase 23 — Build & release, final report: **report written; build NOT done.**
   No SDK/kotlinc here, so no build/lint/test/APK. Did static checks only (brace
   balance, local imports): clean. Re-created `.github/workflows/build.yml`
