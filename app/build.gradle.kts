@@ -48,6 +48,17 @@ android {
         jvmTarget = "17"
     }
 
+    testOptions {
+        unitTests.all {
+            // Print failing test names + stack traces directly in the CI log
+            // (Gradle's default output only says "N tests completed, M failed").
+            it.testLogging {
+                events("failed")
+                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+            }
+        }
+    }
+
     buildFeatures {
         compose = true
     }

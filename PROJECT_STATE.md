@@ -1222,6 +1222,11 @@ this file fully before touching code.
   in SubjectStatsTest lacked `allSessions()` (+ `deleteAll()`) added to the DAO
   after the fake was written. Fixed in checkpoint 21. Remaining test sources
   not yet compiled past this point.
+- **CI RUN #3 (checkpoint 21): ALL SOURCES, MAIN + TEST, NOW COMPILE.** The run
+  then failed at `testDebugUnitTest` itself (i.e. at least one unit test
+  fails), but the pasted log was cut off before the failure detail, so the
+  failing test(s) are UNKNOWN. Checkpoint 22 adds `testOptions` logging so the
+  next log names each failing test with its stack trace.
 - 🔶 Phase 23 — Build & release, final report: **report written; build NOT done.**
   No SDK/kotlinc here, so no build/lint/test/APK. Did static checks only (brace
   balance, local imports): clean. Re-created `.github/workflows/build.yml`
