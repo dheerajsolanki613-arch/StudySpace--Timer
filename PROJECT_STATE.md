@@ -1215,6 +1215,13 @@ this file fully before touching code.
   TasksScreen, SubjectDetailScreen. Imports removed (checkpoint 20). Only 3
   errors were reported, but Kotlin may surface more once these clear —
   expect further rounds. Tests/lint/assemble not reached yet.
+- **CI RUN #2 (checkpoint 20): MAIN SOURCE SET NOW COMPILES** (`compileDebugKotlin`
+  passed; only warnings: deprecated `Icons.Filled.MenuBook`, unused `onOpenTasks`
+  param in HomeScreen, missing `@OptIn(ExperimentalCoroutinesApi)` at
+  TimerForegroundService.kt:72). Test compile then failed: `FakeStudySessionDao`
+  in SubjectStatsTest lacked `allSessions()` (+ `deleteAll()`) added to the DAO
+  after the fake was written. Fixed in checkpoint 21. Remaining test sources
+  not yet compiled past this point.
 - 🔶 Phase 23 — Build & release, final report: **report written; build NOT done.**
   No SDK/kotlinc here, so no build/lint/test/APK. Did static checks only (brace
   balance, local imports): clean. Re-created `.github/workflows/build.yml`
