@@ -1227,6 +1227,14 @@ this file fully before touching code.
   fails), but the pasted log was cut off before the failure detail, so the
   failing test(s) are UNKNOWN. Checkpoint 22 adds `testOptions` logging so the
   next log names each failing test with its stack trace.
+- **CI RUN #4 (checkpoint 22): 258 tests ran, 255 passed, 3 failed** (incl. all
+  12 new TimerEngineTest). Causes: (a) StudyDataBackupTest x2 — TEST bug: fixture
+  session started in 1970 (5_000_000 ms) so import validation correctly rejected
+  it ("before year 2000"); fixture now uses realistic timestamps. (b)
+  SmartPlannerTest "no availability..." — REAL code bug: `SmartPlanner.suggest`
+  early-returned an empty result for no availability/zero days/zero cap, hiding
+  the tasks; now only empty `tasks` short-circuits, the rest report every task as
+  unscheduled. Fixes in checkpoint 23, unverified.
 - 🔶 Phase 23 — Build & release, final report: **report written; build NOT done.**
   No SDK/kotlinc here, so no build/lint/test/APK. Did static checks only (brace
   balance, local imports): clean. Re-created `.github/workflows/build.yml`

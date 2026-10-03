@@ -116,7 +116,10 @@ object SmartPlanner {
      * about — no randomness, no external calls.
      */
     fun suggest(tasks: List<PlannableTask>, request: SmartPlanRequest): SmartPlanResult {
-        if (request.daysAhead <= 0 || request.availability.isEmpty() || tasks.isEmpty() || request.maxDailyMinutes <= 0) {
+        // Only "no tasks" short-circuits. With no availability / no days / no daily cap the
+        // normal loop below schedules nothing and reports every task as unscheduled,
+        // instead of silently returning an empty result (found by CI, checkpoint 22 run).
+        if (tasks.isEmpty()) {
             return SmartPlanResult(emptyList(), emptyList())
         }
 

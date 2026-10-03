@@ -15,7 +15,8 @@ import java.time.ZoneId
 
 class StudyDataBackupTest {
     private val utc = ZoneId.of("UTC")
-    private val now = 10_000_000L
+    // Realistic values: import rejects session starts before year 2000 or in the future.
+    private val now = 1_790_000_000_000L
 
     private val math = SubjectEntity(id = 1, name = "Mathematics", icon = "📐", colorArgb = 0x112233, createdAtEpochMillis = 0L)
     private val calculus = TaskEntity(
@@ -24,8 +25,8 @@ class StudyDataBackupTest {
         estimatedDurationMinutes = null, completed = false, createdAtEpochMillis = 1_000L, completedAtEpochMillis = null
     )
     private val session = StudySessionEntity(
-        id = 9, type = SessionType.POMODORO.name, label = "Calculus", startEpochMillis = 5_000_000L,
-        durationMillis = 5_400_000L, completedNaturally = true, dateEpochDay = 57, subjectId = 1, taskId = 5
+        id = 9, type = SessionType.POMODORO.name, label = "Calculus", startEpochMillis = 1_700_000_000_000L,
+        durationMillis = 5_400_000L, completedNaturally = true, dateEpochDay = 19675, subjectId = 1, taskId = 5
     )
     private val plannedSession = PlannedSessionEntity(
         id = 3, dateEpochDay = 100, startMinuteOfDay = 960, durationMinutes = 60,
